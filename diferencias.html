@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Método de Diferencias Divididas — Tutorial Paso a Paso del Profesor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Barra de navegación superior profesional -->
+  <header class="top-navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="brand-group">
+        <span class="brand-symbol">L</span>
+        <div class="brand-text-wrap">
+          <span class="brand-title">Interpolación Polinómica</span>
+          <span class="brand-subtitle">Apuntes de Clase y Pizarra Interactiva</span>
+        </div>
+      </a>
+
+      <nav class="nav-links" aria-label="Navegación principal">
+        <a href="index.html" class="nav-link">
+          📖 Tutorial: Lagrange
+        </a>
+        <a href="diferencias.html" class="nav-link active" aria-current="page">
+          📐 Tutorial: Diferencias Divididas
+        </a>
+        <a href="calculadora.html" class="nav-link">
+          🧮 Calc. Lagrange
+        </a>
+        <a href="calculadora-diferencias.html" class="nav-link">
+          🧮 Calc. Diferencias Divididas
+        </a>
+      </nav>
+
+      <div class="navbar-actions">
+        <button type="button" id="theme-toggle-btn" class="btn btn-secondary" aria-label="Cambiar tema de color">
+          Alternar tema
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="main-wrapper">
+    <!-- Banner de Definición del Método de Diferencias Divididas -->
+    <section class="definition-banner" aria-labelledby="dd-def-heading">
+      <div class="definition-Header">
+        <h1 id="dd-def-heading" class="definition-title">Método de Diferencias Divididas</h1>
+      </div>
+      <p class="definition-text">
+        Dada una lista de <span class="math-inline">n + 1</span> nodos, podemos encontrar el mismo polinomio interpolador <span class="math-inline">P(x)</span> armando una <strong>tablita</strong> donde vamos restando en cada columna <em>el número de abajo menos el número de arriba</em> y dividiendo entre la resta de sus <span class="math-inline">x</span> correspondientes.
+      </p>
+    </section>
+
+    <div class="workspace-layout">
+      <!-- Panel lateral izquierdo: Nodos del ejercicio -->
+      <aside class="workspace-sidebar">
+        <section class="notebook-card" aria-labelledby="dd-input-heading">
+          <h2 id="dd-input-heading" class="card-title">Nodos para la Tablita</h2>
+          <p class="card-subtitle">
+            Observa cómo el profesor arma la tablita y dibuja con flechas qué número se resta con qué número. Elige si quieres ver el ejemplo con <strong>3 nodos</strong> o con <strong>4 nodos</strong>:
+          </p>
+
+          <div class="btn-row" style="margin-top: 0; margin-bottom: 0.65rem;">
+            <button type="button" id="dd-teacher-3-btn" class="btn btn-secondary btn-example-select is-selected" aria-pressed="true" style="flex: 1;">
+              Ejemplo 3 nodos
+            </button>
+            <button type="button" id="dd-teacher-4-btn" class="btn btn-secondary btn-example-select" aria-pressed="false" style="flex: 1;">
+              Ejemplo 4 nodos
+            </button>
+          </div>
+
+          <div class="table-wrapper">
+            <table class="nodes-input-table" aria-label="Tabla de nodos del ejemplo para diferencias divididas">
+              <thead>
+                <tr>
+                  <th scope="col">Nodo</th>
+                  <th scope="col"><span class="math-inline">x<sub>i</sub></span></th>
+                  <th scope="col"><span class="math-inline">y<sub>i</sub></span></th>
+                </tr>
+              </thead>
+              <tbody id="dd-nodes-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="btn-stack">
+            <button type="button" id="dd-start-steps-btn" class="btn btn-primary">
+              Empezar paso a paso
+            </button>
+            <button type="button" id="dd-show-all-top-btn" class="btn btn-secondary">
+              Mostrar todo el desarrollo
+            </button>
+          </div>
+        </section>
+
+        <section class="notebook-card" style="background-color: var(--bg-subtle);">
+          <h2 class="card-title" style="font-size: 1.45rem;">Truco de pizarra</h2>
+          <p class="card-subtitle" style="margin-bottom: 0;">
+            En la tabla vertical nunca pierdas el orden: siempre <strong>el número de abajo se resta con el de arriba</strong>, tanto en las columnas de diferencias como en la columna de las <span class="dd-pill-x">x<sub>i</sub></span>.
+          </p>
+        </section>
+      </aside>
+
+      <!-- Pizarra principal derecha: Desarrollo paso a paso -->
+      <div class="workspace-board">
+        <main id="dd-steps-container" aria-live="polite"></main>
+
+        <div id="dd-step-controls" class="step-controls-bar" hidden>
+          <span id="dd-step-progress" class="step-progress-text"></span>
+          <div class="btn-row" style="margin-top: 0;">
+            <button type="button" id="dd-next-step-btn" class="btn btn-primary">Siguiente paso</button>
+            <button type="button" id="dd-show-all-btn" class="btn btn-secondary">Mostrar todo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="lagrange.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const {
+        parseInputToFrac,
+        generateDividedDiffStepsData,
+        scrollToElement,
+        createStepCardElement,
+        syncStepJumperBar,
+        initThemeToggle
+      } = window.LagrangeApp;
+
+      const TEACHER_3_NODES = [
+        { x: '-1', y: '1' },
+        { x: '1', y: '-3' },
+        { x: '2', y: '-1' }
+      ];
+
+      const TEACHER_4_NODES = [
+        { x: '-1', y: '1' },
+        { x: '0', y: '1' },
+        { x: '1', y: '-3' },
+        { x: '2', y: '-1' }
+      ];
+
+      const tbody = document.getElementById('dd-nodes-tbody');
+      const teacher3Btn = document.getElementById('dd-teacher-3-btn');
+      const teacher4Btn = document.getElementById('dd-teacher-4-btn');
+      const startStepsBtn = document.getElementById('dd-start-steps-btn');
+      const showAllTopBtn = document.getElementById('dd-show-all-top-btn');
+      const stepsContainer = document.getElementById('dd-steps-container');
+      const stepControls = document.getElementById('dd-step-controls');
+      const stepProgress = document.getElementById('dd-step-progress');
+      const nextStepBtn = document.getElementById('dd-next-step-btn');
+      const showAllBtn = document.getElementById('dd-show-all-btn');
+
+      let currentRawNodes = TEACHER_3_NODES;
+      let generatedSteps = [];
+      let revealedCount = 0;
+
+      function setActiveExampleButton(count) {
+        const is3 = count === 3;
+        teacher3Btn.classList.toggle('is-selected', is3);
+        teacher3Btn.setAttribute('aria-pressed', String(is3));
+        teacher4Btn.classList.toggle('is-selected', !is3);
+        teacher4Btn.setAttribute('aria-pressed', String(!is3));
+      }
+
+      function populateTable(rawNodes) {
+        currentRawNodes = rawNodes;
+        tbody.innerHTML = '';
+        rawNodes.forEach((pt, idx) => {
+          const xDisplay = pt.x.replace('-', '−');
+          const yDisplay = pt.y.replace('-', '−');
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="node-index-cell"><span class="math-inline">(x<sub>${idx}</sub>, y<sub>${idx}</sub>)</span></td>
+            <td><span class="node-readonly-val math-inline">${xDisplay}</span></td>
+            <td><span class="node-readonly-val math-inline">${yDisplay}</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function getParsedNodes() {
+        return currentRawNodes.map(pt => ({
+          x: parseInputToFrac(pt.x).value,
+          y: parseInputToFrac(pt.y).value,
+          active: true
+        }));
+      }
+
+      function jumpToStep(targetIdx) {
+        if (targetIdx < 0 || targetIdx >= generatedSteps.length) return;
+        if (revealedCount <= targetIdx) {
+          const frag = document.createDocumentFragment();
+          while (revealedCount <= targetIdx) {
+            const idx = revealedCount;
+            const card = createStepCardElement(generatedSteps[idx], idx, generatedSteps.length);
+            frag.appendChild(card);
+            revealedCount++;
+          }
+          stepsContainer.appendChild(frag);
+        }
+        updateControlsState();
+        const targetCard = stepsContainer.querySelectorAll('.step-card')[targetIdx];
+        if (targetCard) {
+          targetCard.classList.remove('step-card-flash');
+          void targetCard.offsetWidth;
+          targetCard.classList.add('step-card-flash');
+          scrollToElement(targetCard);
+        }
+      }
+
+      function updateControlsState() {
+        const total = generatedSteps.length;
+        syncStepJumperBar(stepsContainer, generatedSteps, revealedCount, jumpToStep);
+        if (total === 0) {
+          stepControls.hidden = true;
+          return;
+        }
+        const allShown = revealedCount >= total;
+        stepControls.hidden = allShown;
+        stepProgress.textContent = `Mostrando ${revealedCount} de ${total} pasos`;
+        nextStepBtn.disabled = allShown;
+        showAllBtn.disabled = allShown;
+      }
+
+      function startSteps({ showAll = false, autoScroll = false } = {}) {
+        const nodes = getParsedNodes();
+        generatedSteps = generateDividedDiffStepsData(nodes);
+        stepsContainer.innerHTML = '';
+        revealedCount = 0;
+
+        if (generatedSteps.length === 0) return;
+
+        const targetCount = showAll ? generatedSteps.length : 1;
+        const frag = document.createDocumentFragment();
+        let firstCard = null;
+        for (let i = 0; i < targetCount; i++) {
+          const card = createStepCardElement(generatedSteps[i], i, generatedSteps.length);
+          if (!firstCard) firstCard = card;
+          frag.appendChild(card);
+          revealedCount++;
+        }
+        stepsContainer.appendChild(frag);
+        updateControlsState();
+        if (autoScroll && firstCard) {
+          scrollToElement(firstCard);
+        }
+      }
+
+      teacher3Btn.addEventListener('click', () => {
+        setActiveExampleButton(3);
+        populateTable(TEACHER_3_NODES);
+        startSteps({ showAll: false, autoScroll: true });
+      });
+
+      teacher4Btn.addEventListener('click', () => {
+        setActiveExampleButton(4);
+        populateTable(TEACHER_4_NODES);
+        startSteps({ showAll: false, autoScroll: true });
+      });
+
+      startStepsBtn.addEventListener('click', () => {
+        startSteps({ showAll: false, autoScroll: true });
+      });
+
+      showAllTopBtn.addEventListener('click', () => {
+        startSteps({ showAll: true, autoScroll: true });
+      });
+
+      nextStepBtn.addEventListener('click', () => {
+        if (revealedCount >= generatedSteps.length) return;
+        const idx = revealedCount;
+        const card = createStepCardElement(generatedSteps[idx], idx, generatedSteps.length);
+        stepsContainer.appendChild(card);
+        revealedCount++;
+        updateControlsState();
+        scrollToElement(card);
+      });
+
+      showAllBtn.addEventListener('click', () => {
+        if (revealedCount >= generatedSteps.length) return;
+        const frag = document.createDocumentFragment();
+        let firstNewCard = null;
+        while (revealedCount < generatedSteps.length) {
+          const idx = revealedCount;
+          const card = createStepCardElement(generatedSteps[idx], idx, generatedSteps.length);
+          if (!firstNewCard) firstNewCard = card;
+          frag.appendChild(card);
+          revealedCount++;
+        }
+        stepsContainer.appendChild(frag);
+        updateControlsState();
+        if (firstNewCard) scrollToElement(firstNewCard);
+      });
+
+      initThemeToggle('theme-toggle-btn');
+      setActiveExampleButton(3);
+      populateTable(TEACHER_3_NODES);
+      startSteps({ showAll: false, autoScroll: false });
+    })();
+  </script>
+</body>
+</html>

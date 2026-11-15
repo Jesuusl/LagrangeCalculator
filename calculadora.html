@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Calculadora del Polinomio de Lagrange — Paso a Paso</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Barra de navegación superior profesional -->
+  <header class="top-navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="brand-group">
+        <span class="brand-symbol">L</span>
+        <div class="brand-text-wrap">
+          <span class="brand-title">Polinomio de Lagrange</span>
+          <span class="brand-subtitle">Apuntes de Clase y Pizarra Interactiva</span>
+        </div>
+      </a>
+
+      <nav class="nav-links" aria-label="Navegación principal">
+        <a href="index.html" class="nav-link">
+          📖 Tutorial: Lagrange
+        </a>
+        <a href="diferencias.html" class="nav-link">
+          📐 Tutorial: Diferencias Divididas
+        </a>
+        <a href="calculadora.html" class="nav-link active" aria-current="page">
+          🧮 Calc. Lagrange
+        </a>
+        <a href="calculadora-diferencias.html" class="nav-link">
+          🧮 Calc. Diferencias Divididas
+        </a>
+      </nav>
+
+      <div class="navbar-actions">
+        <button type="button" id="theme-toggle-btn" class="btn btn-secondary" aria-label="Cambiar tema de color">
+          Alternar tema
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="main-wrapper">
+    <!-- Banner de introducción de la Calculadora con lenguaje de clase -->
+    <section class="definition-banner" aria-labelledby="calc-banner-heading">
+      <div class="definition-Header">
+        <span class="prof-badge">Herramienta de práctica</span>
+        <h1 id="calc-banner-heading" class="definition-title">Calculadora Paso a Paso del Polinomio de Lagrange</h1>
+      </div>
+      <p class="definition-text">
+        Elige cuántos nodos tendrá tu plano cartesiano y con cuántos de esos nodos vas a trabajar. Resolveremos el ejercicio paso a paso como en la pizarra y podrás evaluar <span class="math-inline">P(x)</span> en cualquier punto <span class="math-inline">x</span>.
+      </p>
+    </section>
+
+    <div class="workspace-layout">
+      <!-- Panel lateral izquierdo: Configuración de nodos + Evaluar P(x) en un punto x -->
+      <aside class="workspace-sidebar">
+        <!-- Tarjeta 1: Cantidad de nodos y tabla -->
+        <section class="notebook-card" aria-labelledby="config-nodes-heading">
+          <h2 id="config-nodes-heading" class="card-title">1. Configura tus nodos</h2>
+          <p class="card-subtitle">
+            Indica cuántos puntos ubicaremos en el plano y con cuántos construiremos el polinomio:
+          </p>
+
+          <div class="counts-grid">
+            <div class="count-box">
+              <label for="calc-plane-count">Nodos en el plano:</label>
+              <div class="count-input-group">
+                <button type="button" id="plane-dec-btn" class="btn-step-mini" aria-label="Disminuir nodos del plano">−</button>
+                <input type="number" id="calc-plane-count" class="count-number-input" min="2" max="12" value="4">
+                <button type="button" id="plane-inc-btn" class="btn-step-mini" aria-label="Aumentar nodos del plano">+</button>
+              </div>
+            </div>
+
+            <div class="count-box">
+              <label for="calc-work-count">Nodos a trabajar (<span class="math-inline">n + 1</span>):</label>
+              <div class="count-input-group">
+                <button type="button" id="work-dec-btn" class="btn-step-mini" aria-label="Disminuir nodos de trabajo">−</button>
+                <input type="number" id="calc-work-count" class="count-number-input" min="2" max="12" value="3">
+                <button type="button" id="work-inc-btn" class="btn-step-mini" aria-label="Aumentar nodos de trabajo">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="calc-counts-note" class="prof-note-banner"></div>
+
+          <div class="table-wrapper">
+            <table class="nodes-input-table" aria-label="Tabla editable de nodos de la calculadora">
+              <thead>
+                <tr>
+                  <th scope="col">Nodo</th>
+                  <th scope="col"><span class="math-inline">x<sub>i</sub></span></th>
+                  <th scope="col"><span class="math-inline">y<sub>i</sub></span></th>
+                  <th scope="col" aria-label="Quitar fila"></th>
+                </tr>
+              </thead>
+              <tbody id="calc-nodes-tbody"></tbody>
+            </table>
+          </div>
+
+          <div id="calc-validation-error" class="error-box" role="alert" hidden></div>
+
+          <div class="btn-row">
+            <button type="button" id="calc-add-node-btn" class="btn btn-secondary" style="width: 100%;">
+              + Añadir nodo al plano
+            </button>
+          </div>
+
+          <div class="btn-stack">
+            <button type="button" id="calc-start-btn" class="btn btn-primary">
+              Calcular paso a paso
+            </button>
+            <button type="button" id="calc-show-all-top-btn" class="btn btn-secondary">
+              Calcular y mostrar todo
+            </button>
+          </div>
+
+          <div class="cross-method-box" style="display: flex; flex-direction: column; gap: 0.45rem;">
+            <a href="calculadora-diferencias.html" class="btn btn-cross-method js-sync-nodes-link">
+              🔄 Resolver estos mismos nodos en Diferencias Divididas
+            </a>
+            <button type="button" id="calc-share-link-btn" class="btn btn-secondary btn-share-link" style="width: 100%; font-size: 0.85rem;">
+              🔗 Copiar enlace del ejercicio
+            </button>
+          </div>
+        </section>
+
+        <!-- Tarjeta 2: Evaluar P(x) en un punto x -->
+        <section class="notebook-card" aria-labelledby="eval-heading">
+          <h2 id="eval-heading" class="card-title">2. Evaluar P(x) en un punto x</h2>
+          <p class="card-subtitle">
+            Una vez hallado nuestro polinomio <span class="math-inline">P(x)</span>, reemplaza cualquier valor de <span class="math-inline">x</span> para conocer su imagen y ubicarlo en la gráfica:
+          </p>
+
+          <div id="active-poly-box" class="math-block math-final-highlight" style="font-size: 1.08rem; padding: 0.65rem 0.85rem; margin-bottom: 0.75rem;">
+            P(x) = ...
+          </div>
+
+          <div class="eval-card-box">
+            <div class="eval-input-row">
+              <label for="eval-x-input" class="eval-x-label">x =</label>
+              <input type="text" id="eval-x-input" class="eval-x-input" value="1/2" placeholder="ej. 1/2, −1,5" autocomplete="off">
+              <button type="button" id="eval-x-btn" class="btn btn-primary">Evaluar P(x)</button>
+            </div>
+          </div>
+
+          <div id="eval-result-box" class="eval-result-panel" hidden></div>
+        </section>
+      </aside>
+
+      <!-- Pizarra principal derecha: Desarrollo paso a paso igual que en el tutorial -->
+      <div class="workspace-board">
+        <main id="calc-steps-container" aria-live="polite"></main>
+
+        <div id="calc-step-controls" class="step-controls-bar" hidden>
+          <span id="calc-step-progress" class="step-progress-text"></span>
+          <div class="btn-row" style="margin-top: 0;">
+            <button type="button" id="calc-next-step-btn" class="btn btn-primary">Siguiente paso</button>
+            <button type="button" id="calc-show-all-btn" class="btn btn-secondary">Mostrar todo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="lagrange.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      const {
+        parseInputToFrac,
+        polyEval,
+        computeLagrangePolynomial,
+        renderFracHTML,
+        renderPolyHTML,
+        renderPolyEvaluationSubstitutionHTML,
+        renderWhyBoxHTML,
+        buildPolyEvaluationBreakdownHTML,
+        generateAllStepsData,
+        scrollToElement,
+        createStepCardElement,
+        syncStepJumperBar,
+        validateCalculatorRowsRealtime,
+        syncCalculatorURLState,
+        copyShareableExerciseURL,
+        parseNodesFromURL,
+        bindCrossMethodNavigation,
+        initThemeToggle
+      } = window.LagrangeApp;
+
+      const INITIAL_CALC_NODES = [
+        { x: '-1', y: '1' },
+        { x: '1', y: '-3' },
+        { x: '2', y: '-1' },
+        { x: '3', y: '4' }
+      ];
+
+      const calcPlaneCountInput = document.getElementById('calc-plane-count');
+      const planeDecBtn = document.getElementById('plane-dec-btn');
+      const planeIncBtn = document.getElementById('plane-inc-btn');
+
+      const calcWorkCountInput = document.getElementById('calc-work-count');
+      const workDecBtn = document.getElementById('work-dec-btn');
+      const workIncBtn = document.getElementById('work-inc-btn');
+
+      const calcCountsNote = document.getElementById('calc-counts-note');
+      const calcTbody = document.getElementById('calc-nodes-tbody');
+      const calcErrorBox = document.getElementById('calc-validation-error');
+      const calcAddNodeBtn = document.getElementById('calc-add-node-btn');
+      const calcStartBtn = document.getElementById('calc-start-btn');
+      const calcShowAllTopBtn = document.getElementById('calc-show-all-top-btn');
+
+      const activePolyBox = document.getElementById('active-poly-box');
+      const evalXInput = document.getElementById('eval-x-input');
+      const evalXBtn = document.getElementById('eval-x-btn');
+      const evalResultBox = document.getElementById('eval-result-box');
+
+      const calcStepsContainer = document.getElementById('calc-steps-container');
+      const calcStepControls = document.getElementById('calc-step-controls');
+      const calcStepProgress = document.getElementById('calc-step-progress');
+      const calcNextStepBtn = document.getElementById('calc-next-step-btn');
+      const calcShowAllBtn = document.getElementById('calc-show-all-btn');
+
+      let calcSteps = [];
+      let calcRevealed = 0;
+      let lastEvalPoint = null;
+
+      function showCalcError(msg) {
+        calcErrorBox.textContent = msg;
+        calcErrorBox.hidden = false;
+      }
+
+      function clearCalcError() {
+        calcErrorBox.textContent = '';
+        calcErrorBox.hidden = true;
+      }
+
+      function getCalcRows() {
+        return Array.from(calcTbody.querySelectorAll('tr'));
+      }
+
+      function setTargetWorkNodeCount(targetCount) {
+        const rows = getCalcRows();
+        const planeTotal = rows.length;
+        const clamped = Math.max(2, Math.min(planeTotal, targetCount));
+        let checkedRows = rows.filter(r => {
+          const chk = r.querySelector('.node-use-check');
+          return chk && chk.checked;
+        });
+
+        if (checkedRows.length < clamped) {
+          for (let i = 0; i < rows.length && checkedRows.length < clamped; i++) {
+            const chk = rows[i].querySelector('.node-use-check');
+            if (chk && !chk.checked) {
+              chk.checked = true;
+              checkedRows.push(rows[i]);
+            }
+          }
+        } else if (checkedRows.length > clamped) {
+          for (let i = rows.length - 1; i >= 0 && checkedRows.length > clamped; i--) {
+            const chk = rows[i].querySelector('.node-use-check');
+            if (chk && chk.checked) {
+              chk.checked = false;
+              checkedRows.pop();
+            }
+          }
+        }
+        calcWorkCountInput.value = clamped;
+        syncCalcTableAndLabels();
+      }
+
+      function syncCalcTableAndLabels() {
+        const rows = getCalcRows();
+        const planeTotal = rows.length;
+        let checkedCount = rows.filter(r => {
+          const chk = r.querySelector('.node-use-check');
+          return chk && chk.checked;
+        }).length;
+
+        if (checkedCount < 2 && planeTotal >= 2) {
+          for (let i = 0; i < rows.length && checkedCount < 2; i++) {
+            const chk = rows[i].querySelector('.node-use-check');
+            if (chk && !chk.checked) {
+              chk.checked = true;
+              checkedCount++;
+            }
+          }
+        }
+
+        const workCount = Math.max(2, Math.min(planeTotal, checkedCount));
+
+        calcPlaneCountInput.value = planeTotal;
+        calcWorkCountInput.max = planeTotal;
+        calcWorkCountInput.value = workCount;
+
+        planeDecBtn.disabled = planeTotal <= 2;
+        planeIncBtn.disabled = planeTotal >= 12;
+        workDecBtn.disabled = workCount <= 2;
+        workIncBtn.disabled = workCount >= planeTotal;
+
+        const disableRemove = planeTotal <= 2;
+        let workIdxCounter = 0;
+
+        rows.forEach((tr, idx) => {
+          const chk = tr.querySelector('.node-use-check');
+          const isWork = chk ? chk.checked : idx < workCount;
+          tr.classList.toggle('row-only-plane', !isWork);
+
+          const statusText = tr.querySelector('.node-index-text');
+          if (statusText) {
+            if (isWork) {
+              statusText.innerHTML = `<span class="math-inline">(x<sub>${workIdxCounter}</sub>, y<sub>${workIdxCounter}</sub>)</span>`;
+              workIdxCounter++;
+            } else {
+              statusText.innerHTML = `<span style="font-style: normal; font-size: 0.8rem; color: var(--ink-muted);">Solo plano</span>`;
+            }
+          }
+
+          const rmBtn = tr.querySelector('.btn-remove');
+          if (rmBtn) {
+            rmBtn.disabled = disableRemove;
+            rmBtn.title = disableRemove
+              ? 'Se requieren como mínimo 2 nodos en el plano'
+              : `Quitar fila ${idx + 1}`;
+          }
+        });
+
+        const degree = workCount - 1;
+        if (planeTotal === workCount) {
+          calcCountsNote.innerHTML =
+            `Tenemos <strong>${planeTotal} nodos en el plano</strong> y trabajamos con los <strong>${workCount} nodos</strong> → Buscamos un polinomio de grado a lo sumo <strong><span class="math-inline">n = ${degree}</span></strong>.`;
+        } else {
+          calcCountsNote.innerHTML =
+            `Ubicamos <strong>${planeTotal} nodos en el plano</strong> y trabajamos con los <strong>${workCount} nodos marcados (✓)</strong> (<span class="math-inline">x<sub>0</sub></span> a <span class="math-inline">x<sub>${degree}</sub></span>) → Grado a lo sumo <strong><span class="math-inline">n = ${degree}</span></strong>.`;
+        }
+      }
+
+      function suggestNextCalcCoords() {
+        const rows = getCalcRows();
+        const usedX = new Set();
+        let maxIntX = 0;
+        rows.forEach(tr => {
+          const rawX = tr.querySelector('.input-x').value;
+          const parsed = parseInputToFrac(rawX);
+          if (parsed.value) {
+            usedX.add(parsed.value.toPlainString());
+            const nVal = Math.round(parsed.value.toNumber());
+            if (isFinite(nVal) && nVal > maxIntX) maxIntX = nVal;
+          }
+        });
+        let nextX = maxIntX + 1;
+        while (usedX.has(nextX.toString())) nextX++;
+        return { x: nextX.toString(), y: ((nextX % 3) + 1).toString() };
+      }
+
+      function createCalcRow(xStr = '', yStr = '', isChecked = true) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="node-index-cell">
+            <label class="node-use-label" title="Marca o desmarca para elegir si este nodo se usa al calcular el polinomio">
+              <input type="checkbox" class="node-use-check" ${isChecked ? 'checked' : ''} aria-label="Usar este nodo">
+              <span class="node-index-text"></span>
+            </label>
+          </td>
+          <td><input type="text" class="node-input input-x" value="${xStr}" placeholder="ej. −1, 1/2" autocomplete="off"></td>
+          <td><input type="text" class="node-input input-y" value="${yStr}" placeholder="ej. 1, −3/4" autocomplete="off"></td>
+          <td><button type="button" class="btn-remove" aria-label="Quitar fila">×</button></td>
+        `;
+
+        const chk = tr.querySelector('.node-use-check');
+        chk.addEventListener('change', () => {
+          const checkedCount = getCalcRows().filter(r => r.querySelector('.node-use-check')?.checked).length;
+          if (checkedCount < 2) {
+            chk.checked = true;
+            showCalcError('Debes dejar al menos 2 nodos marcados (✓) para construir el polinomio.');
+            return;
+          }
+          clearCalcError();
+          syncCalcTableAndLabels();
+        });
+
+        const rmBtn = tr.querySelector('.btn-remove');
+        rmBtn.addEventListener('click', () => {
+          if (getCalcRows().length <= 2) {
+            showCalcError('Debe haber al menos 2 nodos en el plano.');
+            return;
+          }
+          clearCalcError();
+          tr.remove();
+          syncCalcTableAndLabels();
+          validateCalculatorRowsRealtime(calcTbody, evalXInput, calcErrorBox);
+        });
+
+        tr.querySelectorAll('input[type="text"]').forEach(inp => {
+          inp.addEventListener('input', () => {
+            const vRes = validateCalculatorRowsRealtime(calcTbody, evalXInput, calcErrorBox);
+            calcStartBtn.disabled = !vRes.valid;
+            calcShowAllTopBtn.disabled = !vRes.valid;
+            if (vRes.valid) {
+              syncCalculatorURLState(calcTbody, parseInt(calcWorkCountInput.value, 10), evalXInput.value);
+            }
+          });
+          inp.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              startCalcSteps({ showAll: false, autoScroll: false, preserveRevealed: true });
+            }
+          });
+        });
+
+        calcTbody.appendChild(tr);
+        syncCalcTableAndLabels();
+        return tr;
+      }
+
+      function setCalcPlaneNodeCount(targetCount) {
+        const clamped = Math.max(2, Math.min(12, targetCount));
+        let rows = getCalcRows();
+        while (rows.length < clamped) {
+          const nextPt = suggestNextCalcCoords();
+          createCalcRow(nextPt.x, nextPt.y, false);
+          rows = getCalcRows();
+        }
+        while (rows.length > clamped) {
+          rows[rows.length - 1].remove();
+          rows = getCalcRows();
+        }
+        syncCalcTableAndLabels();
+      }
+
+      function readAndValidateCalcNodes() {
+        const rows = getCalcRows();
+        const planeTotal = rows.length;
+
+        if (planeTotal < 2) {
+          return { error: 'Se necesitan al menos 2 nodos en el plano.' };
+        }
+
+        const allPlaneNodes = [];
+        const workNodes = [];
+
+        for (let i = 0; i < rows.length; i++) {
+          const xRaw = rows[i].querySelector('.input-x').value;
+          const yRaw = rows[i].querySelector('.input-y').value;
+          const chk = rows[i].querySelector('.node-use-check');
+
+          const xRes = parseInputToFrac(xRaw);
+          if (xRes.error) {
+            return { error: `Error en x de la fila ${i + 1}: ${xRes.error} Usa enteros, decimales (con punto o coma) o fracciones como 1/2.` };
+          }
+          const yRes = parseInputToFrac(yRaw);
+          if (yRes.error) {
+            return { error: `Error en y de la fila ${i + 1}: ${yRes.error} Usa enteros, decimales (con punto o coma) o fracciones como 1/2.` };
+          }
+
+          const isWork = chk ? chk.checked : true;
+          const nodeObj = { x: xRes.value, y: yRes.value, active: isWork };
+          allPlaneNodes.push(nodeObj);
+          if (isWork) workNodes.push(nodeObj);
+        }
+
+        if (workNodes.length < 2) {
+          return { error: 'Marca al menos 2 nodos con (✓) para construir el polinomio.' };
+        }
+
+        for (let i = 0; i < allPlaneNodes.length; i++) {
+          for (let j = i + 1; j < allPlaneNodes.length; j++) {
+            if (allPlaneNodes[i].x.equals(allPlaneNodes[j].x)) {
+              return {
+                error: `Las filas ${i + 1} y ${j + 1} tienen el mismo valor de x (${allPlaneNodes[i].x.toPlainString()}). Dos nodos no pueden tener la misma x.`
+              };
+            }
+          }
+        }
+
+        return { workNodes, allPlaneNodes };
+      }
+
+      function jumpToCalcStep(targetIdx) {
+        if (targetIdx < 0 || targetIdx >= calcSteps.length) return;
+        if (calcRevealed <= targetIdx) {
+          const frag = document.createDocumentFragment();
+          while (calcRevealed <= targetIdx) {
+            const idx = calcRevealed;
+            const card = createStepCardElement(calcSteps[idx], idx, calcSteps.length);
+            frag.appendChild(card);
+            calcRevealed++;
+          }
+          calcStepsContainer.appendChild(frag);
+        }
+        updateCalcStepControls();
+        const targetCard = calcStepsContainer.querySelectorAll('.step-card')[targetIdx];
+        if (targetCard) {
+          targetCard.classList.remove('step-card-flash');
+          void targetCard.offsetWidth;
+          targetCard.classList.add('step-card-flash');
+          scrollToElement(targetCard);
+        }
+      }
+
+      function updateCalcStepControls() {
+        const total = calcSteps.length;
+        syncStepJumperBar(calcStepsContainer, calcSteps, calcRevealed, jumpToCalcStep);
+        if (total === 0) {
+          calcStepControls.hidden = true;
+          return;
+        }
+        const allShown = calcRevealed >= total;
+        calcStepControls.hidden = allShown;
+        calcStepProgress.textContent = `Mostrando ${calcRevealed} de ${total} pasos`;
+        calcNextStepBtn.disabled = allShown;
+        calcShowAllBtn.disabled = allShown;
+      }
+
+      function computeAndDisplayEvaluation(finalPoly) {
+        const xParsed = parseInputToFrac(evalXInput.value);
+        if (xParsed.error) {
+          lastEvalPoint = null;
+          evalResultBox.hidden = false;
+          evalResultBox.innerHTML = `<span style="color: var(--error-text); font-size: 0.9rem;">Valor de x inválido: ${xParsed.error}</span>`;
+          return;
+        }
+
+        const xVal = xParsed.value;
+        const yVal = polyEval(finalPoly, xVal);
+        const subHTML = renderPolyEvaluationSubstitutionHTML(finalPoly, xVal);
+        lastEvalPoint = { x: xVal, y: yVal };
+
+        const approxNote = !yVal.isInteger()
+          ? ` &nbsp;<span style="color: var(--ink-secondary); font-size: 0.92rem;">(≈ ${yVal.toDecimalString(4)})</span>`
+          : '';
+
+        const whyEvalBox = renderWhyBoxHTML(
+          `¿Cómo se calculó P(${xVal.toPlainString()})?`,
+          buildPolyEvaluationBreakdownHTML(finalPoly, xVal)
+        );
+
+        evalResultBox.hidden = false;
+        evalResultBox.innerHTML = `
+          <div style="font-size: 0.9rem; font-weight: 700; color: var(--check-green); margin-bottom: 0.25rem;">
+            ✓ Reemplazando <span class="math-inline">x = ${renderFracHTML(xVal)}</span> en <span class="math-inline">P(x)</span>:
+          </div>
+          <div class="math-block" style="margin: 0.25rem 0; padding: 0.5rem 0.7rem; font-size: 1.02rem;">
+            P(${renderFracHTML(xVal)}) = ${subHTML} = <strong>${renderFracHTML(yVal)}</strong>${approxNote}
+          </div>
+          ${whyEvalBox}
+          <div style="font-size: 0.85rem; color: var(--ink-secondary);">
+            Punto en el plano: <strong class="math-inline">(${xVal.toPlainString()}, ${yVal.toPlainString()})</strong>
+          </div>
+        `;
+      }
+
+      function startCalcSteps({ showAll = false, autoScroll = true, preserveRevealed = false } = {}) {
+        clearCalcError();
+        syncCalcTableAndLabels();
+        const vRes = validateCalculatorRowsRealtime(calcTbody, evalXInput, calcErrorBox);
+        calcStartBtn.disabled = !vRes.valid;
+        calcShowAllTopBtn.disabled = !vRes.valid;
+        const res = readAndValidateCalcNodes();
+        if (res.error) {
+          showCalcError(res.error);
+          return;
+        }
+
+        syncCalculatorURLState(calcTbody, parseInt(calcWorkCountInput.value, 10), evalXInput.value);
+
+        const { finalPoly } = computeLagrangePolynomial(res.workNodes);
+        activePolyBox.innerHTML = `P(x) = ${renderPolyHTML(finalPoly)}`;
+
+        if (evalXInput.value.trim() !== '') {
+          computeAndDisplayEvaluation(finalPoly);
+        } else {
+          lastEvalPoint = null;
+          evalResultBox.hidden = true;
+        }
+
+        const prevRevealed = calcRevealed;
+        calcSteps = generateAllStepsData(res.workNodes, res.allPlaneNodes, lastEvalPoint);
+        calcStepsContainer.innerHTML = '';
+        calcRevealed = 0;
+
+        if (calcSteps.length === 0) return;
+
+        let targetCount = 1;
+        if (showAll) {
+          targetCount = calcSteps.length;
+        } else if (preserveRevealed && prevRevealed > 0) {
+          targetCount = Math.min(prevRevealed, calcSteps.length);
+        }
+
+        const frag = document.createDocumentFragment();
+        let firstCard = null;
+        for (let i = 0; i < targetCount; i++) {
+          const card = createStepCardElement(calcSteps[i], i, calcSteps.length);
+          if (!firstCard) firstCard = card;
+          frag.appendChild(card);
+          calcRevealed++;
+        }
+        calcStepsContainer.appendChild(frag);
+        updateCalcStepControls();
+        if (autoScroll && firstCard) {
+          scrollToElement(firstCard);
+        }
+      }
+
+      // Controles de cantidad de nodos en el plano
+      planeDecBtn.addEventListener('click', () => {
+        clearCalcError();
+        setCalcPlaneNodeCount(getCalcRows().length - 1);
+      });
+
+      planeIncBtn.addEventListener('click', () => {
+        clearCalcError();
+        setCalcPlaneNodeCount(getCalcRows().length + 1);
+      });
+
+      calcPlaneCountInput.addEventListener('change', () => {
+        clearCalcError();
+        const val = parseInt(calcPlaneCountInput.value, 10);
+        if (isNaN(val) || val < 2) {
+          showCalcError('La cantidad de nodos en el plano debe ser como mínimo 2.');
+          calcPlaneCountInput.value = getCalcRows().length;
+          return;
+        }
+        setCalcPlaneNodeCount(val);
+      });
+
+      // Controles de cantidad de nodos con los que se va a trabajar
+      workDecBtn.addEventListener('click', () => {
+        clearCalcError();
+        setTargetWorkNodeCount(parseInt(calcWorkCountInput.value, 10) - 1);
+      });
+
+      workIncBtn.addEventListener('click', () => {
+        clearCalcError();
+        setTargetWorkNodeCount(parseInt(calcWorkCountInput.value, 10) + 1);
+      });
+
+      calcWorkCountInput.addEventListener('change', () => {
+        clearCalcError();
+        const planeTotal = getCalcRows().length;
+        const val = parseInt(calcWorkCountInput.value, 10);
+        if (isNaN(val) || val < 2 || val > planeTotal) {
+          showCalcError(`La cantidad de nodos de trabajo debe estar entre 2 y ${planeTotal}.`);
+          syncCalcTableAndLabels();
+          return;
+        }
+        setTargetWorkNodeCount(val);
+      });
+
+      calcAddNodeBtn.addEventListener('click', () => {
+        clearCalcError();
+        const nextPt = suggestNextCalcCoords();
+        const newRow = createCalcRow(nextPt.x, nextPt.y, true);
+        syncCalcTableAndLabels();
+        const firstInput = newRow.querySelector('.input-x');
+        if (firstInput) {
+          firstInput.focus();
+          firstInput.select();
+        }
+      });
+
+      calcStartBtn.addEventListener('click', () => {
+        startCalcSteps({ showAll: false, autoScroll: true });
+      });
+
+      calcShowAllTopBtn.addEventListener('click', () => {
+        startCalcSteps({ showAll: true, autoScroll: true });
+      });
+
+      evalXBtn.addEventListener('click', () => {
+        startCalcSteps({ showAll: false, autoScroll: false, preserveRevealed: true });
+      });
+
+      evalXInput.addEventListener('input', () => {
+        validateCalculatorRowsRealtime(calcTbody, evalXInput, calcErrorBox);
+      });
+
+      evalXInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          startCalcSteps({ showAll: false, autoScroll: false, preserveRevealed: true });
+        }
+      });
+
+      const calcShareLinkBtn = document.getElementById('calc-share-link-btn');
+      if (calcShareLinkBtn) {
+        calcShareLinkBtn.addEventListener('click', () => {
+          copyShareableExerciseURL(calcShareLinkBtn, calcTbody, parseInt(calcWorkCountInput.value, 10), evalXInput.value);
+        });
+      }
+
+      calcNextStepBtn.addEventListener('click', () => {
+        if (calcRevealed >= calcSteps.length) return;
+        const idx = calcRevealed;
+        const card = createStepCardElement(calcSteps[idx], idx, calcSteps.length);
+        calcStepsContainer.appendChild(card);
+        calcRevealed++;
+        updateCalcStepControls();
+        scrollToElement(card);
+      });
+
+      calcShowAllBtn.addEventListener('click', () => {
+        if (calcRevealed >= calcSteps.length) return;
+        const frag = document.createDocumentFragment();
+        let firstNewCard = null;
+        while (calcRevealed < calcSteps.length) {
+          const idx = calcRevealed;
+          const card = createStepCardElement(calcSteps[idx], idx, calcSteps.length);
+          if (!firstNewCard) firstNewCard = card;
+          frag.appendChild(card);
+          calcRevealed++;
+        }
+        calcStepsContainer.appendChild(frag);
+        updateCalcStepControls();
+        if (firstNewCard) scrollToElement(firstNewCard);
+      });
+
+      initThemeToggle('theme-toggle-btn');
+      bindCrossMethodNavigation(
+        calcTbody,
+        () => parseInt(calcWorkCountInput.value, 10),
+        () => evalXInput.value
+      );
+
+      // Inicializar la Calculadora al cargar la página (respetando nodos en la URL si vienen de otra vista)
+      const urlData = parseNodesFromURL();
+      if (urlData && urlData.evalX) {
+        evalXInput.value = urlData.evalX;
+      }
+      const startNodes = urlData && urlData.nodes ? urlData.nodes : INITIAL_CALC_NODES;
+      const defaultWorkCount = urlData && urlData.workCount
+        ? Math.min(startNodes.length, urlData.workCount)
+        : (urlData && urlData.nodes ? startNodes.length : 3);
+      startNodes.forEach((pt, idx) => {
+        const isChecked = pt.active !== undefined && pt.active !== null ? pt.active : idx < defaultWorkCount;
+        createCalcRow(pt.x, pt.y, isChecked);
+      });
+      syncCalcTableAndLabels();
+      startCalcSteps({ showAll: false, autoScroll: false });
+    })();
+  </script>
+</body>
+</html>

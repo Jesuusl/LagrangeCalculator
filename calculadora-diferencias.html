@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <!-- Barra de navegación superior profesional -->
@@ -75,7 +75,7 @@
               <label for="dd-calc-plane-count">Nodos en el plano:</label>
               <div class="count-input-group">
                 <button type="button" id="dd-plane-dec-btn" class="btn-step-mini" aria-label="Disminuir nodos del plano">−</button>
-                <input type="number" id="dd-calc-plane-count" class="count-number-input" min="2" max="12" value="5">
+                <input type="number" id="dd-calc-plane-count" class="count-number-input" min="2" max="12" value="3" autocomplete="off">
                 <button type="button" id="dd-plane-inc-btn" class="btn-step-mini" aria-label="Aumentar nodos del plano">+</button>
               </div>
             </div>
@@ -84,7 +84,7 @@
               <label for="dd-calc-work-count">Nodos a trabajar (<span class="math-inline">n + 1</span>):</label>
               <div class="count-input-group">
                 <button type="button" id="dd-work-dec-btn" class="btn-step-mini" aria-label="Disminuir nodos de trabajo">−</button>
-                <input type="number" id="dd-calc-work-count" class="count-number-input" min="2" max="12" value="4">
+                <input type="number" id="dd-calc-work-count" class="count-number-input" min="2" max="12" value="3" autocomplete="off">
                 <button type="button" id="dd-work-inc-btn" class="btn-step-mini" aria-label="Aumentar nodos de trabajo">+</button>
               </div>
             </div>
@@ -122,15 +122,6 @@
               Calcular y mostrar todo
             </button>
           </div>
-
-          <div class="cross-method-box" style="display: flex; flex-direction: column; gap: 0.45rem;">
-            <a href="calculadora.html" class="btn btn-cross-method js-sync-nodes-link">
-              🔄 Resolver estos mismos nodos en Lagrange
-            </a>
-            <button type="button" id="dd-calc-share-link-btn" class="btn btn-secondary btn-share-link" style="width: 100%; font-size: 0.85rem;">
-              🔗 Copiar enlace del ejercicio
-            </button>
-          </div>
         </section>
 
         <!-- Tarjeta 2: Evaluar P(x) en un punto x -->
@@ -147,7 +138,7 @@
           <div class="eval-card-box">
             <div class="eval-input-row">
               <label for="dd-eval-x-input" class="eval-x-label">x =</label>
-              <input type="text" id="dd-eval-x-input" class="eval-x-input" value="1/2" placeholder="ej. 1/2, −1,5" autocomplete="off">
+              <input type="text" id="dd-eval-x-input" class="eval-x-input" value="" placeholder="ej. 1/2, −1,5" autocomplete="off">
               <button type="button" id="dd-eval-x-btn" class="btn btn-primary">Evaluar P(x)</button>
             </div>
           </div>
@@ -182,7 +173,7 @@
     </div>
   </footer>
 
-  <script src="lagrange.js?v=4"></script>
+  <script src="lagrange.js?v=5"></script>
   <script>
     (function () {
       'use strict';
@@ -201,20 +192,8 @@
         createStepCardElement,
         syncStepJumperBar,
         validateCalculatorRowsRealtime,
-        syncCalculatorURLState,
-        copyShareableExerciseURL,
-        parseNodesFromURL,
-        bindCrossMethodNavigation,
         initThemeToggle
       } = window.LagrangeApp;
-
-      const INITIAL_DD_CALC_NODES = [
-        { x: '-1', y: '3' },
-        { x: '0', y: '1' },
-        { x: '1', y: '3' },
-        { x: '2', y: '15' },
-        { x: '3', y: '43' }
-      ];
 
       const calcPlaneCountInput = document.getElementById('dd-calc-plane-count');
       const planeDecBtn = document.getElementById('dd-plane-dec-btn');
@@ -417,9 +396,6 @@
             const vRes = validateCalculatorRowsRealtime(calcTbody, evalXInput, calcErrorBox);
             calcStartBtn.disabled = !vRes.valid;
             calcShowAllTopBtn.disabled = !vRes.valid;
-            if (vRes.valid) {
-              syncCalculatorURLState(calcTbody, parseInt(calcWorkCountInput.value, 10), evalXInput.value);
-            }
           });
           inp.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -438,8 +414,7 @@
         const clamped = Math.max(2, Math.min(12, targetCount));
         let rows = getCalcRows();
         while (rows.length < clamped) {
-          const nextPt = suggestNextCalcCoords();
-          createCalcRow(nextPt.x, nextPt.y, false);
+          createCalcRow('', '', true);
           rows = getCalcRows();
         }
         while (rows.length > clamped) {
@@ -583,8 +558,6 @@
           return;
         }
 
-        syncCalculatorURLState(calcTbody, parseInt(calcWorkCountInput.value, 10), evalXInput.value);
-
         const { finalPoly } = computeDividedDifferencesPolynomial(res.workNodes);
         activePolyBox.innerHTML = `P(x) = ${renderPolyHTML(finalPoly)}`;
 
@@ -671,8 +644,7 @@
 
       calcAddNodeBtn.addEventListener('click', () => {
         clearCalcError();
-        const nextPt = suggestNextCalcCoords();
-        const newRow = createCalcRow(nextPt.x, nextPt.y, true);
+        const newRow = createCalcRow('', '', true);
         syncCalcTableAndLabels();
         const firstInput = newRow.querySelector('.input-x');
         if (firstInput) {
@@ -704,13 +676,6 @@
         }
       });
 
-      const calcShareLinkBtn = document.getElementById('dd-calc-share-link-btn');
-      if (calcShareLinkBtn) {
-        calcShareLinkBtn.addEventListener('click', () => {
-          copyShareableExerciseURL(calcShareLinkBtn, calcTbody, parseInt(calcWorkCountInput.value, 10), evalXInput.value);
-        });
-      }
-
       calcNextStepBtn.addEventListener('click', () => {
         if (calcRevealed >= calcSteps.length) return;
         const idx = calcRevealed;
@@ -738,27 +703,47 @@
       });
 
       initThemeToggle('theme-toggle-btn');
-      bindCrossMethodNavigation(
-        calcTbody,
-        () => parseInt(calcWorkCountInput.value, 10),
-        () => evalXInput.value
-      );
 
-      // Inicializar la Calculadora al cargar la página (respetando nodos en la URL si vienen de otra vista)
-      const urlData = parseNodesFromURL();
-      if (urlData && urlData.evalX) {
-        evalXInput.value = urlData.evalX;
+      // Al cargar o refrescar la página, limpiar cualquier parámetro previo de nodos en la URL y reiniciar todo en blanco
+      if (window.history && window.history.replaceState && window.location.search) {
+        try {
+          const params = new URLSearchParams(window.location.search);
+          const themeOnly = params.get('tema');
+          const cleanQs = (themeOnly === 'light' || themeOnly === 'dark') ? `?tema=${themeOnly}` : '';
+          window.history.replaceState(null, '', window.location.pathname + cleanQs);
+        } catch (_) {}
       }
-      const startNodes = urlData && urlData.nodes ? urlData.nodes : INITIAL_DD_CALC_NODES;
-      const defaultWorkCount = urlData && urlData.workCount
-        ? Math.min(startNodes.length, urlData.workCount)
-        : (urlData && urlData.nodes ? startNodes.length : 4);
-      startNodes.forEach((pt, idx) => {
-        const isChecked = pt.active !== undefined && pt.active !== null ? pt.active : idx < defaultWorkCount;
-        createCalcRow(pt.x, pt.y, isChecked);
-      });
-      syncCalcTableAndLabels();
-      startCalcSteps({ showAll: false, autoScroll: false });
+
+      function resetCalculatorState() {
+        calcTbody.innerHTML = '';
+        calcPlaneCountInput.value = '3';
+        calcWorkCountInput.value = '3';
+        evalXInput.value = '';
+        activePolyBox.innerHTML = 'P(x) = ...';
+        evalResultBox.hidden = true;
+        clearCalcError();
+        calcSteps = [];
+        calcRevealed = 0;
+        for (let i = 0; i < 3; i++) {
+          createCalcRow('', '', true);
+        }
+        syncCalcTableAndLabels();
+        updateCalcStepControls();
+        calcStepsContainer.innerHTML = `
+          <section class="notebook-card step-card">
+            <div class="step-header">
+              <h2 class="step-title">Pizarra lista para calcular</h2>
+            </div>
+            <div class="step-body">
+              <p class="step-explanation">
+                Escribe las coordenadas <span class="math-inline">(x<sub>i</sub>, y<sub>i</sub>)</span> de tus nodos en el panel izquierdo y pulsa <strong>«Calcular paso a paso»</strong> o <strong>«Calcular y mostrar todo»</strong> para armar la tablita de Diferencias Divididas en la pizarra.
+              </p>
+            </div>
+          </section>
+        `;
+      }
+
+      resetCalculatorState();
     })();
   </script>
 </body>

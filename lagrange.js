@@ -2704,7 +2704,7 @@
     });
   }
 
-  // Validación reactiva en tiempo real por campo (marca con .is-invalid / aria-invalid las celdas con error o x_i duplicados)
+  // Validación reactiva en tiempo real por campo (marca con .is-invalid / aria-invalid las celdas con sintaxis inválida o x_i duplicados)
   function validateCalculatorRowsRealtime(tbody, evalXInput = null, errorBox = null) {
     if (!tbody) return { valid: true };
     const rows = Array.from(tbody.querySelectorAll('tr'));
@@ -2715,28 +2715,40 @@
       const ix = tr.querySelector('.input-x');
       const iy = tr.querySelector('.input-y');
       if (ix) {
-        const rx = parseInputToFrac(ix.value);
-        if (rx.error) {
-          ix.classList.add('is-invalid');
-          ix.setAttribute('aria-invalid', 'true');
-          if (!firstErrorMsg) firstErrorMsg = `Fila ${idx + 1} (x): ${rx.error}`;
-        } else {
+        const rawX = ix.value.trim();
+        if (rawX === '') {
           ix.classList.remove('is-invalid');
           ix.removeAttribute('aria-invalid');
-          const key = rx.value.toPlainString();
-          if (!seenXMap.has(key)) seenXMap.set(key, []);
-          seenXMap.get(key).push({ input: ix, rowNum: idx + 1 });
+        } else {
+          const rx = parseInputToFrac(rawX);
+          if (rx.error) {
+            ix.classList.add('is-invalid');
+            ix.setAttribute('aria-invalid', 'true');
+            if (!firstErrorMsg) firstErrorMsg = `Fila ${idx + 1} (x): ${rx.error}`;
+          } else {
+            ix.classList.remove('is-invalid');
+            ix.removeAttribute('aria-invalid');
+            const key = rx.value.toPlainString();
+            if (!seenXMap.has(key)) seenXMap.set(key, []);
+            seenXMap.get(key).push({ input: ix, rowNum: idx + 1 });
+          }
         }
       }
       if (iy) {
-        const ry = parseInputToFrac(iy.value);
-        if (ry.error) {
-          iy.classList.add('is-invalid');
-          iy.setAttribute('aria-invalid', 'true');
-          if (!firstErrorMsg) firstErrorMsg = `Fila ${idx + 1} (y): ${ry.error}`;
-        } else {
+        const rawY = iy.value.trim();
+        if (rawY === '') {
           iy.classList.remove('is-invalid');
           iy.removeAttribute('aria-invalid');
+        } else {
+          const ry = parseInputToFrac(rawY);
+          if (ry.error) {
+            iy.classList.add('is-invalid');
+            iy.setAttribute('aria-invalid', 'true');
+            if (!firstErrorMsg) firstErrorMsg = `Fila ${idx + 1} (y): ${ry.error}`;
+          } else {
+            iy.classList.remove('is-invalid');
+            iy.removeAttribute('aria-invalid');
+          }
         }
       }
     });

@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Método de Diferencias Divididas — Tutorial Paso a Paso del Profesor</title>
+  <meta name="description" content="Tutorial interactivo paso a paso del Método de Diferencias Divididas de Newton con tabla vertical y aritmética exacta.">
+  <meta property="og:title" content="Método de Diferencias Divididas — Pizarra Interactiva">
+  <meta property="og:description" content="Aprende cómo armar la tablita de Diferencias Divididas paso a paso con flechas y explicaciones de clase.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231b3a6b'/%3E%3Ctext x='32' y='46' font-family='Georgia,serif' font-size='42' font-weight='bold' font-style='italic' fill='%23ffffff' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,600&display=swap" rel="stylesheet">
@@ -48,6 +52,7 @@
     <!-- Banner de Definición del Método de Diferencias Divididas -->
     <section class="definition-banner" aria-labelledby="dd-def-heading">
       <div class="definition-Header">
+        <span class="prof-badge">Definición de clase</span>
         <h1 id="dd-def-heading" class="definition-title">Método de Diferencias Divididas</h1>
       </div>
       <p class="definition-text">
@@ -97,10 +102,13 @@
         </section>
 
         <section class="notebook-card" style="background-color: var(--bg-subtle);">
-          <h2 class="card-title" style="font-size: 1.45rem;">Truco de pizarra</h2>
-          <p class="card-subtitle" style="margin-bottom: 0;">
-            En la tabla vertical nunca pierdas el orden: siempre <strong>el número de abajo se resta con el de arriba</strong>, tanto en las columnas de diferencias como en la columna de las <span class="dd-pill-x">x<sub>i</sub></span>.
+          <h2 class="card-title" style="font-size: 1.45rem;">¿Quieres poner tus propios nodos?</h2>
+          <p class="card-subtitle" style="margin-bottom: 0.75rem;">
+            En la <strong>Calculadora de Diferencias Divididas</strong> puedes escribir tus propios nodos, armar la tablita automáticamente y evaluar <span class="math-inline">P(x)</span>.
           </p>
+          <a href="calculadora-diferencias.html" class="btn btn-accent" style="width: 100%;">
+            Ir a la Calculadora →
+          </a>
         </section>
       </aside>
 
@@ -118,6 +126,16 @@
       </div>
     </div>
   </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span><strong>Interpolación Polinómica</strong> — Apuntes de Clase y Pizarra Interactiva</span>
+      <div class="footer-shortcuts" aria-label="Atajos de teclado">
+        <span class="shortcut-item"><kbd class="kbd-pill">←</kbd><kbd class="kbd-pill">→</kbd> Cambiar de paso</span>
+        <span class="shortcut-item"><kbd class="kbd-pill">Clic en ?</kbd> Ver explicación detallada</span>
+      </div>
+    </div>
+  </footer>
 
   <script src="lagrange.js"></script>
   <script>

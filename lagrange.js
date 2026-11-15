@@ -1201,7 +1201,7 @@
       }
 
       const whyDistI = renderWhyBoxHTML(
-        `¿Cómo se multiplicó Y${i} = ${pt.y.toPlainString()} por cada término de L${i}(x)?`,
+        `¿Cómo se multiplicó Y<sub>${i}</sub> = ${pt.y.toPlainString()} por cada término de L<sub>${i}</sub>(x)?`,
         `
           <div>Aplicamos la propiedad distributiva multiplicando <span class="math-inline">y<sub>${i}</sub> = ${renderFracHTML(pt.y)}</span> por cada término dentro del paréntesis <span class="math-inline">(${renderPolyHTML(basisPolys[i])})</span>:</div>
           <ul class="why-sublist">${termProdBullets.join('')}</ul>
@@ -1211,7 +1211,7 @@
 
       return `
         <div class="math-block">
-          Y<sub>${i}</sub> · L<sub>${i}</sub>(x) = ${yBadge}${lHTML} = ${resHTML}
+          <span class="math-eq-stage">Y<sub>${i}</sub> · L<sub>${i}</sub>(x)</span> = <span class="math-eq-stage">${yBadge}${lHTML}</span> = <span class="math-eq-stage">${resHTML}</span>
         </div>
         ${whyDistI}
       `;
@@ -1265,14 +1265,14 @@
         : (deg === 1 ? 'Términos con x' : `Términos con x<sup>${deg}</sup>`);
 
       const whyDeg = renderWhyBoxHTML(
-        `¿De dónde salen estos números y cómo se suman? (${degTitle.replace(/<[^>]+>/g, '')})`,
+        `¿De dónde salen estos números y cómo se suman? (${degTitle})`,
         buildDegreeGroupingBreakdownHTML(deg, scaledPolys, lagrangeSourceLabels, totalAtDeg)
       );
 
       groupedByDegreeLines.push(`
         <div class="math-block">
           <span style="font-style: normal; font-weight: 600; color: var(--ink-secondary);">${degTitle}:</span>
-          ${wrappedSumExpr}${varLabel} = ${renderTermWithSignHTML(totalAtDeg, deg, true)}
+          <span class="math-eq-stage">${wrappedSumExpr}${varLabel}</span> = <span class="math-eq-stage">${renderTermWithSignHTML(totalAtDeg, deg, true)}</span>
         </div>
         ${whyDeg}
       `);
@@ -2060,14 +2060,14 @@
         : (deg === 1 ? 'Términos con x' : `Términos con x<sup>${deg}</sup>`);
 
       const whyDeg = renderWhyBoxHTML(
-        `¿De dónde salen estos números y cómo se suman? (${degTitle.replace(/<[^>]+>/g, '')})`,
+        `¿De dónde salen estos números y cómo se suman? (${degTitle})`,
         buildDegreeGroupingBreakdownHTML(deg, termPolys, ddSourceLabels, totalAtDeg)
       );
 
       groupedByDegreeLines.push(`
         <div class="math-block">
           <span style="font-style: normal; font-weight: 600; color: var(--ink-secondary);">${degTitle}:</span>
-          ${wrappedSumExpr}${varLabel} = ${renderTermWithSignHTML(totalAtDeg, deg, true)}
+          <span class="math-eq-stage">${wrappedSumExpr}${varLabel}</span> = <span class="math-eq-stage">${renderTermWithSignHTML(totalAtDeg, deg, true)}</span>
         </div>
         ${whyDeg}
       `);
@@ -2301,6 +2301,14 @@
       if (box.querySelector('.copy-poly-btn')) return;
       if (/P\(x\)\s*=\s*\.\.\./.test(box.textContent)) return;
       box.classList.add('has-copy-btn');
+      if (!box.querySelector('.math-final-expr')) {
+        const exprWrap = document.createElement('span');
+        exprWrap.className = 'math-final-expr';
+        while (box.firstChild) {
+          exprWrap.appendChild(box.firstChild);
+        }
+        box.appendChild(exprWrap);
+      }
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'copy-poly-btn';
@@ -2331,7 +2339,10 @@
     section.setAttribute('tabindex', '-1');
     section.innerHTML = `
       <div class="step-header">
-        <h2 class="step-title">Paso ${index + 1}: ${stepData.title}</h2>
+        <h2 class="step-title">
+          <span class="step-num-circle" aria-hidden="true">${index + 1}</span>
+          <span>Paso ${index + 1}: ${stepData.title}</span>
+        </h2>
         <span class="step-badge">Paso ${index + 1} de ${total}</span>
       </div>
       <div class="step-body">
@@ -2926,13 +2937,23 @@
 
     const btn = document.getElementById(btnId);
     if (!btn) return;
+
+    function isDarkThemeActive() {
+      const currentAttr = document.documentElement.getAttribute('data-theme');
+      const systemDark = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      return currentAttr === 'dark' || (!currentAttr && systemDark);
+    }
+
+    function syncThemeButtonLabel() {
+      btn.innerHTML = isDarkThemeActive() ? '☀️ Tema claro' : '🌙 Tema oscuro';
+    }
+
+    syncThemeButtonLabel();
+
     btn.addEventListener('click', () => {
-      const root = document.documentElement;
-      const currentAttr = root.getAttribute('data-theme');
-      const systemDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const isCurrentlyDark = currentAttr === 'dark' || (!currentAttr && systemDark);
-      const nextTheme = isCurrentlyDark ? 'light' : 'dark';
-      root.setAttribute('data-theme', nextTheme);
+      const nextTheme = isDarkThemeActive() ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', nextTheme);
+      syncThemeButtonLabel();
 
       if (typeof window !== 'undefined' && window.history && window.history.replaceState) {
         try {

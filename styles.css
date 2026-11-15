@@ -1591,19 +1591,21 @@ sub, sup {
 
 /* 3. Botón Copiar P(x) dentro de bloques de resultado final */
 .math-final-highlight.has-copy-btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  position: relative;
+  display: block;
+  padding-right: 6.2rem !important;
 }
 
 .math-final-expr {
-  display: inline-block;
+  display: inline;
   line-height: 1.85;
 }
 
 .copy-poly-btn {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
@@ -1617,8 +1619,7 @@ sub, sup {
   border: 1px solid var(--accent-red);
   background-color: var(--bg-card);
   color: var(--accent-red);
-  transition: all 0.15s ease;
-  flex-shrink: 0;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .copy-poly-btn:hover {

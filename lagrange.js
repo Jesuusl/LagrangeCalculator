@@ -2339,10 +2339,7 @@
     section.setAttribute('tabindex', '-1');
     section.innerHTML = `
       <div class="step-header">
-        <h2 class="step-title">
-          <span class="step-num-circle" aria-hidden="true">${index + 1}</span>
-          <span>Paso ${index + 1}: ${stepData.title}</span>
-        </h2>
+        <h2 class="step-title">Paso ${index + 1}: ${stepData.title}</h2>
         <span class="step-badge">Paso ${index + 1} de ${total}</span>
       </div>
       <div class="step-body">

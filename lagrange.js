@@ -1037,8 +1037,8 @@
         .join('');
 
       const denStepsChain = otherNodes.length > 1
-        ? `D = ${denSubFactorsHTML} = ${denDiffsHTML} = <span class="coeff-highlight">${renderFracHTML(D)}</span>`
-        : `D = ${denSubFactorsHTML} = <span class="coeff-highlight">${renderFracHTML(D)}</span>`;
+        ? `${denSubFactorsHTML} = ${denDiffsHTML} = <span class="coeff-highlight">${renderFracHTML(D)}</span>`
+        : `${denSubFactorsHTML} = <span class="coeff-highlight">${renderFracHTML(D)}</span>`;
 
       let monicPoly = [new Frac(1n)];
       for (const xj of otherNodes) {
@@ -1050,8 +1050,10 @@
       basisPolys.push(LiPoly);
 
       const isDOne = D.isOne();
+      const denResultInline = D.toPlainString().replace('-', MINUS);
+      const oneOverDenLabel = `1/${D.isNegative() || !D.isInteger() ? `(${denResultInline})` : denResultInline}`;
       const outerFracHTML = isDOne ? '' : `(${renderFracHTML(invD)})`;
-      const outerFracColoredHTML = isDOne ? '' : `<span class="coeff-highlight" title="1/D">(${renderFracHTML(invD)})</span>`;
+      const outerFracColoredHTML = isDOne ? '' : `<span class="coeff-highlight" title="${oneOverDenLabel}">(${renderFracHTML(invD)})</span>`;
 
       const chainStages = [];
       const rawChainStages = [];
@@ -1117,19 +1119,19 @@
       }).join('');
 
       const whySubB = renderWhyBoxHTML(
-        '¿Cómo se restó y multiplicó el denominador D?',
+        '¿Cómo se restó y multiplicó el denominador?',
         `
           <div><strong>1. Resolvemos cada paréntesis del denominador por separado:</strong></div>
           <ul class="why-sublist">${denEachBullets}</ul>
           <div><strong>2. Multiplicamos esos resultados entre sí:</strong> <span class="math-inline">${denDiffsHTML} = <strong>${renderFracHTML(D)}</strong></span>.</div>
-          <div><strong>3. ¿Por qué sale <span class="math-inline">${renderFracHTML(invD)}</span> afuera?:</strong> dividir un polinomio entre <span class="math-inline">D = ${renderFracHTML(D)}</span> es exactamente lo mismo que multiplicar por la fracción <span class="math-inline">1/D = <strong>${renderFracHTML(invD)}</strong></span>.</div>
+          <div><strong>3. ¿Por qué sale <span class="math-inline">${renderFracHTML(invD)}</span> afuera?:</strong> dividir un polinomio entre <span class="math-inline">${renderFracHTML(D)}</span> es exactamente lo mismo que multiplicar por la fracción <span class="math-inline">${oneOverDenLabel} = <strong>${renderFracHTML(invD)}</strong></span>.</div>
         `
       );
 
-      // Explicación (?) para c) Multiplicación del numerador y distribución de 1/D
+      // Explicación (?) para c) Multiplicación del numerador y distribución de la fracción
       const whySubC = renderWhyBoxHTML(
         '¿Cómo se multiplicaron los paréntesis y la fracción paso a paso?',
-        buildFactorMultiplicationBreakdownHTML(otherNodes, otherIndices, invD, '1/D', false)
+        buildFactorMultiplicationBreakdownHTML(otherNodes, otherIndices, invD, oneOverDenLabel, false)
       );
 
       steps.push({
@@ -1149,14 +1151,14 @@
               ${whySubA}
             </li>
             <li class="substep-item">
-              <span class="substep-label">b) Resolvemos primero el denominador numéricamente (<span class="math-inline">D</span>):</span>
+              <span class="substep-label">b) Resolvemos primero el denominador:</span>
               <div class="math-block">
                 ${denStepsChain}
               </div>
               ${whySubB}
             </li>
             <li class="substep-item">
-              <span class="substep-label">c) ${isDOne ? 'Como <span class="math-inline">D = 1</span>, resolvemos el numerador en una sola cadena de igualdades:' : 'Dejamos la fracción <span class="math-inline">1/D</span> afuera y desarrollamos el numerador en una sola cadena de igualdades:'}</span>
+              <span class="substep-label">c) ${isDOne ? 'Como el denominador dio <span class="math-inline">1</span>, resolvemos el numerador en una sola cadena de igualdades:' : `Dejamos la fracción <span class="math-inline">${oneOverDenLabel}</span> afuera y desarrollamos el numerador en una sola cadena de igualdades:`}</span>
               <div class="math-block">
                 ${fullChainHTML}
               </div>

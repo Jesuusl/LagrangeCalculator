@@ -1137,7 +1137,7 @@
         html: `
           <ul class="substep-list">
             <li class="substep-item">
-              <span class="substep-label">a) Reemplazamos los valores de <span class="math-inline">x</span> en la fracción (en <span class="coeff-highlight" style="font-size:0.85em;">rojo</span> el nodo propio <span class="math-inline">x<sub>${i}</sub></span> y en <span class="sub-x-highlight" style="font-size:0.85em;">verde</span> los demás nodos <span class="math-inline">x<sub>j</sub></span>):</span>
+              <span class="substep-label">a) Reemplazamos los valores de <span class="math-inline">x</span> en la fracción (en <span class="coeff-highlight" style="font-size:0.85em;">rojo</span> el nodo propio <span class="math-inline">x<sub>${i}</sub></span> y en <span class="sub-x-highlight" style="font-size:0.85em;">verde</span> los demás nodos):</span>
               <div class="math-block">
                 L<sub>${i}</sub>(x) =
                 <span class="frac">

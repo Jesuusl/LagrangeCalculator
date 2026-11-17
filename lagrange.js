@@ -932,8 +932,8 @@
     );
 
     const introExplanation = showExtraPlaneCol
-      ? `En nuestro plano ubicamos <strong>${totalPlane} nodos</strong> y elegimos trabajar con <strong><span class="math-inline">n + 1 = ${totalNodes}</span> nodos</strong> (por lo tanto, <span class="math-inline">n = ${n}</span>). Así que buscamos un polinomio <span class="math-inline">P(x)</span> de <strong>grado a lo sumo <span class="math-inline">n = ${n}</span></strong> que pase por esos ${totalNodes} nodos de trabajo:`
-      : `Tenemos <strong><span class="math-inline">n + 1 = ${totalNodes}</span> nodos</strong> (es decir, <span class="math-inline">n = ${n}</span>). Por definición, buscamos un polinomio <span class="math-inline">P(x)</span> de <strong>grado a lo sumo <span class="math-inline">n = ${n}</span></strong> que pase exactamente por todos estos puntos:`;
+      ? `En nuestro plano ubicamos <strong>${totalPlane} nodos</strong> y elegimos trabajar con <strong><span class="math-inline">n + 1 = ${totalNodes}</span> nodos</strong> (por lo tanto, <span class="math-inline">n = ${n}</span>). Así que buscamos un polinomio <span class="math-inline">P(x)</span> de <strong>grado <span class="math-inline">n = ${n}</span></strong> que pase por esos ${totalNodes} nodos de trabajo:`
+      : `Tenemos <strong><span class="math-inline">n + 1 = ${totalNodes}</span> nodos</strong> (es decir, <span class="math-inline">n = ${n}</span>). Por definición, buscamos un polinomio <span class="math-inline">P(x)</span> de <strong>grado <span class="math-inline">n = ${n}</span></strong> que pase exactamente por todos estos puntos:`;
 
     steps.push({
       title: 'Los nodos en el plano',

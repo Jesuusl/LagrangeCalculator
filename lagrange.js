@@ -1632,6 +1632,14 @@
       }
     }
 
+    const legendHTML = maxVisibleOrder > 0
+      ? `
+        <div class="plot-legend">
+          <span class="legend-item"><span class="dd-pill-x" style="font-size:0.75rem;">Resaltado en verde</span> Para armar cada fracción: arriba restas los dos números de la columna y (el de abajo menos el de arriba) y abajo restas sus dos valores de x (el de abajo menos el de arriba).</span>
+        </div>
+      `
+      : '';
+
     return `
       <div class="dd-diagram-wrapper">
         <svg class="dd-svg-board" viewBox="0 0 ${width} ${height}" role="img" aria-label="Tabla vertical escalonada de diferencias divididas">
@@ -1643,9 +1651,7 @@
           ${connectorsSVG}
           ${cellsSVG}
         </svg>
-        <div class="plot-legend">
-          <span class="legend-item"><span class="dd-pill-x" style="font-size:0.75rem;">Resaltado en verde</span> Para armar cada fracción: arriba restas los dos números de la columna anterior (el de abajo menos el de arriba) y abajo restas sus dos valores de x (el de abajo menos el de arriba).</span>
-        </div>
+        ${legendHTML}
       </div>
     `;
   }

@@ -992,7 +992,7 @@
           P(x) = ${sumTermsSymbolic}
         </div>
         <p class="step-explanation">
-          Recuerda el truco clave de clase: cada <span class="math-inline">L<sub>i</sub>(x)</span> se arma para que <strong>valga <span class="math-inline">1</span> en su propio nodo (<span class="math-inline">x = x<sub>i</sub></span>) y <span class="math-inline">0</span> en todos los demás nodos (<span class="math-inline">x = x<sub>j</sub></span> con <span class="math-inline">j ≠ i</span>)</strong>:
+          Para armar cada fracción <span class="math-inline">L<sub>i</sub>(x)</span> el truco es muy sencillo: <strong>arriba</strong> ponemos <span class="math-inline">x</span> restando a todos los demás nodos, excepto al <span class="math-inline">x<sub>i</sub></span> que estamos calculando; y <strong>abajo</strong> escribimos exactamente lo mismo, solo que en vez de poner <span class="math-inline">x</span> al inicio, ponemos ese <span class="math-inline">x<sub>i</sub></span>:
         </p>
         ${generalFormulasHTML}
       `

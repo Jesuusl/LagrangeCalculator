@@ -1341,7 +1341,7 @@
       title: 'Verificamos con la gráfica',
       html: `
         <p class="step-explanation">
-          Para estar seguros de que no nos equivocamos en las cuentas, comprobamos que <span class="math-inline">P(x<sub>i</sub>) = y<sub>i</sub></span> en cada nodo con el que trabajamos:
+          Para estar seguros de que no nos equivocamos en las cuentas, comprobamos que <span class="math-inline">P(x) = y</span> en cada nodo con el que trabajamos:
         </p>
         <ul class="verification-list">
           ${verificationItemsHTML}
@@ -2139,7 +2139,7 @@
       title: 'Verificamos con la gráfica',
       html: `
         <p class="step-explanation">
-          Comprobamos que <span class="math-inline">P(x<sub>i</sub>) = y<sub>i</sub></span> se cumple en cada nodo con el que trabajamos:
+          Comprobamos que <span class="math-inline">P(x) = y</span> se cumple en cada nodo con el que trabajamos:
         </p>
         <ul class="verification-list">
           ${verificationItemsHTML}

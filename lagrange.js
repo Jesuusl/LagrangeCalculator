@@ -946,8 +946,8 @@
             <thead>
               <tr>
                 <th scope="col">Índice</th>
-                <th scope="col">Abscisa <span class="math-inline">x<sub>i</sub></span></th>
-                <th scope="col">Ordenada <span class="math-inline">y<sub>i</sub></span></th>
+                <th scope="col"><span class="math-inline">x</span></th>
+                <th scope="col"><span class="math-inline">y</span></th>
                 <th scope="col">Punto <span class="math-inline">(x, y)</span></th>
                 ${showExtraPlaneCol ? '<th scope="col">Estado</th>' : ''}
               </tr>
@@ -1782,8 +1782,8 @@
             <thead>
               <tr>
                 <th scope="col">Índice</th>
-                <th scope="col">Abscisa <span class="math-inline">x<sub>i</sub></span></th>
-                <th scope="col">Ordenada <span class="math-inline">y<sub>i</sub></span></th>
+                <th scope="col"><span class="math-inline">x</span></th>
+                <th scope="col"><span class="math-inline">y</span></th>
                 <th scope="col">Punto <span class="math-inline">(x, y)</span></th>
                 ${showExtraPlaneCol ? '<th scope="col">Estado</th>' : ''}
               </tr>

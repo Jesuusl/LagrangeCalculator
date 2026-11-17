@@ -1459,8 +1459,8 @@
     let headers = `
       <line x1="16" y1="38" x2="${width - 16}" y2="38" stroke="var(--border-strong)" stroke-width="1.5" />
       <text x="34" y="26" text-anchor="middle" fill="var(--ink-secondary)" font-size="13" font-weight="700">i</text>
-      <text x="${xColStart}" y="26" text-anchor="middle" fill="var(--ink-secondary)" font-size="14" font-weight="700" font-style="italic">xᵢ</text>
-      <text x="${getColX(0)}" y="26" text-anchor="middle" fill="var(--ink-secondary)" font-size="14" font-weight="700" font-style="italic">yᵢ</text>
+      <text x="${xColStart}" y="26" text-anchor="middle" fill="var(--ink-secondary)" font-size="14" font-weight="700" font-style="italic">x</text>
+      <text x="${getColX(0)}" y="26" text-anchor="middle" fill="var(--ink-secondary)" font-size="14" font-weight="700" font-style="italic">y</text>
     `;
 
     for (let ord = 1; ord <= maxVisibleOrder; ord++) {
@@ -1644,7 +1644,7 @@
           ${cellsSVG}
         </svg>
         <div class="plot-legend">
-          <span class="legend-item"><span class="dd-pill-x" style="font-size:0.75rem;">Resaltado en verde</span> Para armar cada fracción: arriba restas los dos números de la columna anterior (el de abajo menos el de arriba) y abajo restas sus dos valores de xᵢ (el de abajo menos el de arriba).</span>
+          <span class="legend-item"><span class="dd-pill-x" style="font-size:0.75rem;">Resaltado en verde</span> Para armar cada fracción: arriba restas los dos números de la columna anterior (el de abajo menos el de arriba) y abajo restas sus dos valores de x (el de abajo menos el de arriba).</span>
         </div>
       </div>
     `;
@@ -1655,8 +1655,8 @@
     const N = workNodes.length;
     let ths = `
       <th scope="col">Fila <span class="math-inline">i</span></th>
-      <th scope="col"><span class="math-inline">x<sub>i</sub></span></th>
-      <th scope="col"><span class="math-inline">y<sub>i</sub></span></th>
+      <th scope="col"><span class="math-inline">x</span></th>
+      <th scope="col"><span class="math-inline">y</span></th>
     `;
     for (let ord = 1; ord <= maxVisibleOrder; ord++) {
       ths += `<th scope="col">${ord}.ª Dif. Dividida</th>`;
@@ -1802,14 +1802,14 @@
       title: 'Armamos la Tabla Vertical y cómo se resta',
       html: `
         <p class="step-explanation">
-          Anotamos en vertical la columna de las <span class="math-inline">x<sub>i</sub></span> y al lado la columna de las <span class="math-inline">y<sub>i</sub></span>. Para calcular cada columna nueva, recuerda siempre cómo se resta:
+          Anotamos en vertical la columna de las <span class="math-inline">x</span> y al lado la columna de las <span class="math-inline">y</span>. Para calcular cada columna nueva, recuerda siempre cómo se resta:
         </p>
         <div class="dd-sub-explain-card">
           <p style="margin: 0 0 0.45rem 0;">
-            <strong>1. Arriba de la fracción (numerador):</strong> miramos la columna anterior y <strong>el número de abajo se resta con el de arriba</strong>.
+            <strong>1. Arriba de la fracción (numerador):</strong> miramos la columna <span class="math-inline">y</span> y <strong>el número de abajo se resta con el de arriba</strong>.
           </p>
           <p style="margin: 0;">
-            <strong>2. Abajo de la fracción (denominador):</strong> miramos la columna <span class="math-inline">x<sub>i</sub></span> y <strong>la x de abajo se resta con la x de arriba</strong>.
+            <strong>2. Abajo de la fracción (denominador):</strong> miramos la columna <span class="math-inline">x</span> y <strong>la x de abajo se resta con la x de arriba</strong>.
           </p>
         </div>
         ${buildDividedDiffVisualSVG(workNodes, ddTable, 0, null, null, false)}
@@ -1821,7 +1821,7 @@
     // -------------------------------------------------------------------------
     for (let ord = 1; ord <= n; ord++) {
       const colCells = ddTable[ord];
-      const prevColName = ord === 1 ? 'la columna y<sub>i</sub>' : `la ${(ord - 1)}.ª Diferencia Dividida`;
+      const prevColName = ord === 1 ? 'la columna y' : `la ${(ord - 1)}.ª Diferencia Dividida`;
 
       for (let idx = 0; idx < colCells.length; idx++) {
         const cell = colCells[idx];
@@ -1882,7 +1882,7 @@
               </li>
               <li>
                 <strong>2. Abajo de la fracción (denominador):</strong>
-                Siguiendo las diagonales hasta la columna <span class="math-inline">x<sub>i</sub></span>, la <span class="math-inline">x</span> de abajo es <span class="math-inline">x<sub>${cell.idxBottom}</sub> = <strong>${renderFracHTML(cell.xBottom)}</strong></span> y la <span class="math-inline">x</span> de arriba es <span class="math-inline">x<sub>${cell.idxTop}</sub> = <strong>${renderFracHTML(cell.xTop)}</strong></span>. Restamos abajo menos arriba:
+                Siguiendo las diagonales hasta la columna <span class="math-inline">x</span>, la <span class="math-inline">x</span> de abajo es <span class="math-inline">x<sub>${cell.idxBottom}</sub> = <strong>${renderFracHTML(cell.xBottom)}</strong></span> y la <span class="math-inline">x</span> de arriba es <span class="math-inline">x<sub>${cell.idxTop}</sub> = <strong>${renderFracHTML(cell.xTop)}</strong></span>. Restamos abajo menos arriba:
                 <span class="math-inline">${xbHTML} ${MINUS} ${xtHTML}${xTopSignNote} = <strong>${renderFracHTML(cell.denDiff)}</strong></span>.
               </li>
               <li>

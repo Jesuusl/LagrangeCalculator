@@ -1954,7 +1954,7 @@
         termPolys.push([ak]);
         const whyTerm0 = renderWhyBoxHTML(
           '¿Por qué el Término 0 queda así?',
-          `El primer término de la fórmula de Newton es simplemente <span class="math-inline">a<sub>0</sub></span> (sin factores con <span class="math-inline">x</span>), que corresponde al primer valor de la columna <span class="math-inline">y<sub>i</sub></span>: <span class="math-inline"><strong>a<sub>0</sub> = ${renderFracHTML(ak)}</strong></span>.`
+          `El primer término de la fórmula de Newton es simplemente <span class="math-inline">a<sub>0</sub></span> (sin factores con <span class="math-inline">x</span>), que corresponde al primer valor de la columna <span class="math-inline">y</span>: <span class="math-inline"><strong>a<sub>0</sub> = ${renderFracHTML(ak)}</strong></span>.`
         );
         termDevelopmentLines.push(`
           <div class="math-block">
@@ -2079,7 +2079,7 @@
       title: 'Sustituimos en P(x), desarrollamos y sumamos',
       html: `
         <p class="step-explanation">
-          Reemplazamos los coeficientes <span class="math-inline">a<sub>0</sub>, …, a<sub>${n}</sub></span> y los nodos <span class="math-inline">x<sub>i</sub></span> en la fórmula de Newton:
+          Reemplazamos los coeficientes <span class="math-inline">a<sub>0</sub>, …, a<sub>${n}</sub></span> y los nodos <span class="math-inline">x</span> en la fórmula de Newton:
         </p>
         <div class="math-block">
           P(x) = ${substitutedTerms.join(' + ')}

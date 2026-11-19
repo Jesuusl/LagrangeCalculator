@@ -1528,19 +1528,19 @@ sub, sup {
   font-weight: 700;
 }
 
-/* Paréntesis matemáticos más grandes y claros */
+/* Paréntesis matemáticos más grandes y claros (después del igual) */
 .math-paren {
   display: inline-block;
-  font-size: 1.3em;
+  font-size: 1.46em;
   font-weight: 500;
   font-style: normal;
   line-height: 1;
-  vertical-align: -0.05em;
-  margin: 0 0.02em;
+  vertical-align: -0.07em;
+  margin: 0 0.025em;
 }
 
 .math-paren-tall {
-  font-size: 1.52em;
+  font-size: 1.72em;
   vertical-align: middle;
 }
 

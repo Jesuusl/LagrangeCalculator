@@ -2666,48 +2666,95 @@
     });
   }
 
-  // Agranda todos los paréntesis matemáticos dentro de bloques y expresiones inline
+  // Agranda los paréntesis matemáticos de agrupación/operación (después del signo igual), dejando P(x) y L_i(x) con su tamaño normal
   function enhanceMathParentheses(rootEl) {
     if (!rootEl || typeof document === 'undefined') return;
     const containers = [];
-    if (rootEl.matches && rootEl.matches('.math-block, .math-inline, .dd-chain-step, .dd-vertical-table td')) {
+    const selector = '.math-block, .dd-chain-step, .verification-item, .dd-vertical-table td';
+    if (rootEl.matches && rootEl.matches(selector)) {
       containers.push(rootEl);
     }
     if (rootEl.querySelectorAll) {
-      rootEl.querySelectorAll('.math-block, .math-inline, .dd-chain-step, .dd-vertical-table td').forEach(el => {
+      rootEl.querySelectorAll(selector).forEach(el => {
         containers.push(el);
       });
     }
 
     containers.forEach(container => {
+      const fullText = (container.textContent || '').trim();
+      const hasLhsHeaderBeforeEq = fullText.includes('=') && /^(P\s*\(|L\s*\d|Y\s*\d|Nodo\s+\d|Término\s+\d)/i.test(fullText);
+
       const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
-      const textNodes = [];
+      const textEntries = [];
+      let seenFirstEquals = !hasLhsHeaderBeforeEq;
       let current;
+
       while ((current = walker.nextNode())) {
         const parent = current.parentElement;
         if (!parent) continue;
-        if (parent.closest('.copy-poly-btn, .math-paren, .why-btn, .why-panel, .dd-coeff-tag')) continue;
-        if (/[()]/.test(current.nodeValue)) {
-          textNodes.push(current);
+        if (parent.closest('.copy-poly-btn, .math-paren, .why-btn, .why-panel, .dd-coeff-tag, .check-badge')) continue;
+
+        const val = current.nodeValue;
+        if (!seenFirstEquals) {
+          const eqPos = val.indexOf('=');
+          if (eqPos !== -1) {
+            seenFirstEquals = true;
+            // Solo procesar paréntesis que estén después del primer '=' en este nodo de texto
+            if (/[()]/.test(val.slice(eqPos + 1))) {
+              textEntries.push({ node: current, startOffset: eqPos + 1 });
+            }
+          }
+          continue;
+        }
+
+        if (/[()]/.test(val)) {
+          textEntries.push({ node: current, startOffset: 0 });
         }
       }
 
-      textNodes.forEach(tNode => {
-        const text = tNode.nodeValue;
-        const parts = text.split(/([()])/g);
-        if (parts.length <= 1) return;
+      textEntries.forEach(({ node: tNode, startOffset }) => {
+        const fullVal = tNode.nodeValue;
+        const prefix = startOffset > 0 ? fullVal.slice(0, startOffset) : '';
+        const text = startOffset > 0 ? fullVal.slice(startOffset) : fullVal;
+
+        // No agrandar el paréntesis de notación de función como L₀(x) o P(x)
+        const prevSib = tNode.previousSibling;
+        const isAfterSubscriptL = prevSib && prevSib.nodeType === 1 && prevSib.tagName === 'SUB' &&
+          prevSib.previousSibling && prevSib.previousSibling.nodeType === 3 && /[PL]\s*$/i.test(prevSib.previousSibling.nodeValue);
+
         const frag = document.createDocumentFragment();
-        parts.forEach(part => {
-          if (!part) return;
-          if (part === '(' || part === ')') {
-            const span = document.createElement('span');
-            span.className = 'math-paren';
-            span.textContent = part;
-            frag.appendChild(span);
-          } else {
-            frag.appendChild(document.createTextNode(part));
+        if (prefix) {
+          frag.appendChild(document.createTextNode(prefix));
+        }
+
+        const tokenRegex = /([PL]\s*\([^()]*\))|([()])/g;
+        let lastIdx = 0;
+        let match;
+        while ((match = tokenRegex.exec(text)) !== null) {
+          if (match.index > lastIdx) {
+            frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
           }
-        });
+          if (match[1]) {
+            // Es P(x) o L(x): dejarlo intacto
+            frag.appendChild(document.createTextNode(match[1]));
+          } else {
+            const parenChar = match[2];
+            const isFuncArgAfterSub = isAfterSubscriptL && startOffset === 0 && match.index <= 4 && /^\s*\([^()]*\)/.test(text);
+            if (isFuncArgAfterSub) {
+              frag.appendChild(document.createTextNode(parenChar));
+            } else {
+              const span = document.createElement('span');
+              span.className = 'math-paren';
+              span.textContent = parenChar;
+              frag.appendChild(span);
+            }
+          }
+          lastIdx = tokenRegex.lastIndex;
+        }
+        if (lastIdx < text.length) {
+          frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+        }
+
         if (tNode.parentNode) {
           tNode.parentNode.replaceChild(frag, tNode);
         }

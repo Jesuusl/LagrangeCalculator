@@ -2760,19 +2760,24 @@
         }
       });
 
-      // Si un paréntesis está junto a una fracción vertical (.frac), darle altura extra (.math-paren-tall)
-      container.querySelectorAll('.math-paren').forEach(pSpan => {
-        const isOpen = pSpan.textContent === '(';
-        const adj = isOpen ? pSpan.nextSibling : pSpan.previousSibling;
-        if (!adj) return;
-        if (adj.nodeType === 1) {
-          if (adj.classList.contains('frac') || (adj.querySelector && adj.querySelector('.frac'))) {
-            pSpan.classList.add('math-paren-tall');
+      // Si un par de paréntesis ( ... ) contiene cualquier fracción vertical (.frac), hacer que ambos cubran toda la altura de la fracción (.math-paren-tall)
+      const seqNodes = Array.from(container.querySelectorAll('.math-paren, .frac:not(.frac-is-huge)'));
+      const parenStack = [];
+      seqNodes.forEach(node => {
+        if (node.classList.contains('math-paren')) {
+          const ch = node.textContent;
+          if (ch === '(') {
+            parenStack.push({ openEl: node, hasFrac: false });
+          } else if (ch === ')' && parenStack.length > 0) {
+            const top = parenStack.pop();
+            if (top.hasFrac) {
+              top.openEl.classList.add('math-paren-tall');
+              node.classList.add('math-paren-tall');
+            }
           }
-        } else if (adj.nodeType === 3 && adj.nodeValue.trim() === MINUS) {
-          const nextAdj = isOpen ? adj.nextSibling : adj.previousSibling;
-          if (nextAdj && nextAdj.nodeType === 1 && (nextAdj.classList.contains('frac') || (nextAdj.querySelector && nextAdj.querySelector('.frac')))) {
-            pSpan.classList.add('math-paren-tall');
+        } else if (node.classList.contains('frac')) {
+          if (parenStack.length > 0) {
+            parenStack[parenStack.length - 1].hasFrac = true;
           }
         }
       });

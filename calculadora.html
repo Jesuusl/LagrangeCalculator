@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body>
   <!-- Barra de navegación superior profesional -->
@@ -69,6 +69,50 @@
           <p class="card-subtitle">
             Indica cuántos puntos ubicaremos en el plano y con cuántos construiremos el polinomio:
           </p>
+
+          <div class="calc-mode-switch" role="group" aria-label="Modo de la calculadora">
+            <button type="button" id="mode-standard-btn" class="calc-mode-btn is-active" aria-pressed="true">
+              🎓 Modo Estándar
+            </button>
+            <button type="button" id="mode-pro-btn" class="calc-mode-btn" aria-pressed="false">
+              ⚡ Modo Profesional
+            </button>
+          </div>
+
+          <div id="pro-options-panel" class="pro-options-panel" hidden>
+            <div class="pro-panel-header">
+              <span class="pro-panel-title">Modo Profesional</span>
+              <span class="pro-unlimited-badge">∞ Nodos ilimitados</span>
+            </div>
+
+            <div class="pro-view-options" role="radiogroup" aria-label="Qué mostrar en la pizarra">
+              <label class="pro-view-radio-label">
+                <input type="radio" name="pro-view-mode" value="step-by-step" checked>
+                <span>Ver desarrollo paso a paso</span>
+              </label>
+              <label class="pro-view-radio-label">
+                <input type="radio" name="pro-view-mode" value="specific-step">
+                <span>Ver un paso en específico</span>
+              </label>
+              <div id="pro-step-select-wrap" class="pro-step-select-wrap" hidden>
+                <select id="pro-step-select" class="pro-step-select" aria-label="Seleccionar paso específico"></select>
+              </div>
+              <label class="pro-view-radio-label">
+                <input type="radio" name="pro-view-mode" value="summary-only">
+                <span>Solo polinomios resueltos, verificaciones y gráfica</span>
+              </label>
+            </div>
+
+            <details class="pro-bulk-details">
+              <summary class="pro-bulk-summary">+ Pegar o cargar múltiples nodos de golpe</summary>
+              <div class="pro-bulk-body">
+                <textarea id="pro-bulk-textarea" class="pro-bulk-textarea" placeholder="Ejemplo: (-1, 1), (1, -3), (2, -1), (4, 5)&#10;o escribe un par x, y por línea"></textarea>
+                <button type="button" id="pro-bulk-load-btn" class="btn btn-secondary" style="width: 100%; font-size: 0.82rem; padding: 0.4rem 0.6rem;">
+                  Cargar nodos en la tabla
+                </button>
+              </div>
+            </details>
+          </div>
 
           <div class="counts-grid">
             <div class="count-box">
@@ -173,7 +217,7 @@
     </div>
   </footer>
 
-  <script src="lagrange.js?v=14"></script>
+  <script src="lagrange.js?v=15"></script>
   <script>
     (function () {
       'use strict';
@@ -188,12 +232,24 @@
         renderWhyBoxHTML,
         buildPolyEvaluationBreakdownHTML,
         generateAllStepsData,
+        generateLagrangeDirectSummaryData,
+        parseBulkNodesText,
+        enhanceMathParentheses,
         scrollToElement,
         createStepCardElement,
         syncStepJumperBar,
         validateCalculatorRowsRealtime,
         initThemeToggle
       } = window.LagrangeApp;
+
+      const modeStandardBtn = document.getElementById('mode-standard-btn');
+      const modeProBtn = document.getElementById('mode-pro-btn');
+      const proOptionsPanel = document.getElementById('pro-options-panel');
+      const proViewRadios = Array.from(document.querySelectorAll('input[name="pro-view-mode"]'));
+      const proStepSelectWrap = document.getElementById('pro-step-select-wrap');
+      const proStepSelect = document.getElementById('pro-step-select');
+      const proBulkTextarea = document.getElementById('pro-bulk-textarea');
+      const proBulkLoadBtn = document.getElementById('pro-bulk-load-btn');
 
       const calcPlaneCountInput = document.getElementById('calc-plane-count');
       const planeDecBtn = document.getElementById('plane-dec-btn');
@@ -205,6 +261,7 @@
 
       const calcCountsNote = document.getElementById('calc-counts-note');
       const calcTbody = document.getElementById('calc-nodes-tbody');
+      const tableWrapper = calcTbody.closest('.table-wrapper');
       const calcErrorBox = document.getElementById('calc-validation-error');
       const calcAddNodeBtn = document.getElementById('calc-add-node-btn');
       const calcStartBtn = document.getElementById('calc-start-btn');
@@ -224,6 +281,51 @@
       let calcSteps = [];
       let calcRevealed = 0;
       let lastEvalPoint = null;
+      let isProMode = false;
+      let proViewMode = 'step-by-step';
+
+      function getMaxAllowedNodes() {
+        return isProMode ? Infinity : 12;
+      }
+
+      function buildExpectedLagrangeStepTitles(workCount) {
+        const titles = [
+          'Paso 1: Los nodos en el plano',
+          'Paso 2: Planteamos P(x)'
+        ];
+        for (let i = 0; i < workCount; i++) {
+          titles.push(`Paso ${3 + i}: Calculamos L${i}(x)`);
+        }
+        titles.push(`Paso ${3 + workCount}: Multiplicamos cada L por su y`);
+        titles.push(`Paso ${4 + workCount}: Sumamos`);
+        titles.push(`Paso ${5 + workCount}: Verificamos con la gráfica`);
+        return titles;
+      }
+
+      function syncProStepSelectOptions(workCount) {
+        if (!proStepSelect) return;
+        const prevVal = parseInt(proStepSelect.value, 10);
+        const titles = buildExpectedLagrangeStepTitles(workCount);
+        proStepSelect.innerHTML = titles.map((t, idx) => `<option value="${idx}">${t}</option>`).join('');
+        if (!isNaN(prevVal) && prevVal >= 0 && prevVal < titles.length) {
+          proStepSelect.value = String(prevVal);
+        } else {
+          proStepSelect.value = '0';
+        }
+      }
+
+      function syncProActionButtonsLabel() {
+        if (!isProMode || proViewMode === 'step-by-step') {
+          calcStartBtn.textContent = 'Calcular paso a paso';
+          calcShowAllTopBtn.hidden = false;
+        } else if (proViewMode === 'specific-step') {
+          calcStartBtn.textContent = 'Calcular y ver paso elegido';
+          calcShowAllTopBtn.hidden = true;
+        } else if (proViewMode === 'summary-only') {
+          calcStartBtn.textContent = 'Calcular polinomios, verificación y gráfica';
+          calcShowAllTopBtn.hidden = true;
+        }
+      }
 
       function showCalcError(msg) {
         calcErrorBox.textContent = msg;
@@ -288,15 +390,26 @@
         }
 
         const workCount = Math.max(2, Math.min(planeTotal, checkedCount));
+        const maxNodes = getMaxAllowedNodes();
 
         calcPlaneCountInput.value = planeTotal;
+        if (isFinite(maxNodes)) {
+          calcPlaneCountInput.max = maxNodes;
+        } else {
+          calcPlaneCountInput.removeAttribute('max');
+        }
         calcWorkCountInput.max = planeTotal;
         calcWorkCountInput.value = workCount;
 
         planeDecBtn.disabled = planeTotal <= 2;
-        planeIncBtn.disabled = planeTotal >= 12;
+        planeIncBtn.disabled = planeTotal >= maxNodes;
         workDecBtn.disabled = workCount <= 2;
         workIncBtn.disabled = workCount >= planeTotal;
+
+        if (tableWrapper) {
+          tableWrapper.classList.toggle('is-pro-scrollable', planeTotal > 6);
+        }
+        syncProStepSelectOptions(workCount);
 
         const disableRemove = planeTotal <= 2;
         let workIdxCounter = 0;
@@ -411,7 +524,8 @@
       }
 
       function setCalcPlaneNodeCount(targetCount) {
-        const clamped = Math.max(2, Math.min(12, targetCount));
+        const maxNodes = getMaxAllowedNodes();
+        const clamped = Math.max(2, isFinite(maxNodes) ? Math.min(maxNodes, targetCount) : targetCount);
         let rows = getCalcRows();
         while (rows.length < clamped) {
           createCalcRow('', '', true);
@@ -544,6 +658,7 @@
             Punto en el plano: <strong class="math-inline">(${xVal.toPlainString()}, ${yVal.toPlainString()})</strong>
           </div>
         `;
+        enhanceMathParentheses(evalResultBox);
       }
 
       function startCalcSteps({ showAll = false, autoScroll = true, preserveRevealed = false } = {}) {
@@ -568,12 +683,41 @@
           evalResultBox.hidden = true;
         }
 
+        // Modo Profesional: Solo polinomios resueltos, verificaciones y gráfica
+        if (isProMode && proViewMode === 'summary-only') {
+          calcSteps = [];
+          calcRevealed = 0;
+          calcStepsContainer.innerHTML = '';
+          const summaryData = generateLagrangeDirectSummaryData(res.workNodes, res.allPlaneNodes, lastEvalPoint);
+          const summaryCard = createStepCardElement(summaryData, 0, 1, 'Modo Profesional · Resumen Directo');
+          calcStepsContainer.appendChild(summaryCard);
+          syncStepJumperBar(calcStepsContainer, [], 0, null);
+          calcStepControls.hidden = true;
+          if (autoScroll) scrollToElement(summaryCard);
+          return;
+        }
+
         const prevRevealed = calcRevealed;
         calcSteps = generateAllStepsData(res.workNodes, res.allPlaneNodes, lastEvalPoint);
         calcStepsContainer.innerHTML = '';
         calcRevealed = 0;
 
         if (calcSteps.length === 0) return;
+
+        // Modo Profesional: Ver un paso en específico
+        if (isProMode && proViewMode === 'specific-step') {
+          const selIdx = Math.min(calcSteps.length - 1, Math.max(0, parseInt(proStepSelect.value, 10) || 0));
+          const specificCard = createStepCardElement(calcSteps[selIdx], selIdx, calcSteps.length);
+          calcStepsContainer.appendChild(specificCard);
+          calcRevealed = calcSteps.length;
+          syncStepJumperBar(calcStepsContainer, calcSteps, calcSteps.length, (idx) => {
+            proStepSelect.value = String(idx);
+            startCalcSteps({ showAll: false, autoScroll: true, preserveRevealed: true });
+          });
+          calcStepControls.hidden = true;
+          if (autoScroll) scrollToElement(specificCard);
+          return;
+        }
 
         let targetCount = 1;
         if (showAll) {
@@ -704,6 +848,62 @@
 
       initThemeToggle('theme-toggle-btn');
 
+      function setProMode(active) {
+        isProMode = Boolean(active);
+        modeStandardBtn.classList.toggle('is-active', !isProMode);
+        modeStandardBtn.setAttribute('aria-pressed', String(!isProMode));
+        modeProBtn.classList.toggle('is-active', isProMode);
+        modeProBtn.setAttribute('aria-pressed', String(isProMode));
+        proOptionsPanel.hidden = !isProMode;
+        syncCalcTableAndLabels();
+        syncProActionButtonsLabel();
+      }
+
+      modeStandardBtn.addEventListener('click', () => {
+        setProMode(false);
+      });
+
+      modeProBtn.addEventListener('click', () => {
+        setProMode(true);
+      });
+
+      proViewRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+          if (radio.checked) {
+            proViewMode = radio.value;
+            proStepSelectWrap.hidden = proViewMode !== 'specific-step';
+            syncProActionButtonsLabel();
+            const checkValid = readAndValidateCalcNodes();
+            if (!checkValid.error) {
+              startCalcSteps({ showAll: false, autoScroll: false, preserveRevealed: true });
+            }
+          }
+        });
+      });
+
+      proStepSelect.addEventListener('change', () => {
+        if (isProMode && proViewMode === 'specific-step') {
+          const checkValid = readAndValidateCalcNodes();
+          if (!checkValid.error) {
+            startCalcSteps({ showAll: false, autoScroll: true, preserveRevealed: true });
+          }
+        }
+      });
+
+      proBulkLoadBtn.addEventListener('click', () => {
+        clearCalcError();
+        const parsed = parseBulkNodesText(proBulkTextarea.value);
+        if (parsed.error) {
+          showCalcError(parsed.error);
+          return;
+        }
+        calcTbody.innerHTML = '';
+        parsed.nodes.forEach(pt => {
+          createCalcRow(pt.x, pt.y, true);
+        });
+        syncCalcTableAndLabels();
+      });
+
       // Al cargar o refrescar la página, limpiar cualquier parámetro previo de nodos en la URL y reiniciar todo en blanco
       if (window.history && window.history.replaceState && window.location.search) {
         try {
@@ -719,6 +919,13 @@
         calcPlaneCountInput.value = '3';
         calcWorkCountInput.value = '3';
         evalXInput.value = '';
+        if (proBulkTextarea) proBulkTextarea.value = '';
+        proViewMode = 'step-by-step';
+        proViewRadios.forEach(r => {
+          r.checked = r.value === 'step-by-step';
+        });
+        if (proStepSelectWrap) proStepSelectWrap.hidden = true;
+        setProMode(false);
         activePolyBox.innerHTML = 'P(x) = ...';
         evalResultBox.hidden = true;
         clearCalcError();

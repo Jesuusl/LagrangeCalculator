@@ -1021,8 +1021,10 @@
         .join('');
 
       const denSubFactorsHTML = otherNodes.map(xj => {
-        const xiStr = `<span class="coeff-highlight" title="Nodo propio x${i}">${renderFracHTML(xi, { parensIfNeg: true })}</span>`;
-        const xjStr = `<span class="sub-x-highlight" title="Otro nodo xⱼ">${renderFracHTML(xj, { parensIfNeg: true })}</span>`;
+        const xiCore = `<span class="coeff-highlight" title="Nodo propio x${i}">${renderFracHTML(xi)}</span>`;
+        const xiStr = xi.isNegative() ? `(${xiCore})` : xiCore;
+        const xjCore = `<span class="sub-x-highlight" title="Otro nodo">${renderFracHTML(xj)}</span>`;
+        const xjStr = xj.isNegative() ? `(${xjCore})` : xjCore;
         return `(${xiStr} ${MINUS} ${xjStr})`;
       }).join('');
 
@@ -1053,7 +1055,7 @@
       const denResultInline = D.toPlainString().replace('-', MINUS);
       const oneOverDenLabel = `1/${D.isNegative() || !D.isInteger() ? `(${denResultInline})` : denResultInline}`;
       const outerFracHTML = isDOne ? '' : `(${renderFracHTML(invD)})`;
-      const outerFracColoredHTML = isDOne ? '' : `<span class="coeff-highlight" title="${oneOverDenLabel}">(${renderFracHTML(invD)})</span>`;
+      const outerFracColoredHTML = isDOne ? '' : `(<span class="coeff-highlight" title="${oneOverDenLabel}">${renderFracHTML(invD)}</span>)`;
 
       const chainStages = [];
       const rawChainStages = [];
@@ -1173,7 +1175,8 @@
     const scaledPolys = workNodes.map((pt, i) => polyScale(basisPolys[i], pt.y));
 
     const pCombinedWithY = workNodes.map((pt, i) => {
-      const yHTML = `<span class="coeff-highlight" title="Coordenada y${i} reemplazada">${renderFracHTML(pt.y, { parensIfNeg: true })}</span>`;
+      const yCore = `<span class="coeff-highlight" title="Coordenada y${i} reemplazada">${renderFracHTML(pt.y)}</span>`;
+      const yHTML = pt.y.isNegative() ? `(${yCore})` : yCore;
       const lHTML = `(${renderPolyHTML(basisPolys[i])})`;
       return `${yHTML}${lHTML}`;
     }).join(' + ');
@@ -1190,7 +1193,8 @@
 
     const eachDistributedHTML = workNodes.map((pt, i) => {
       const yHTML = renderFracHTML(pt.y, { parensIfNeg: true });
-      const yBadge = `<span class="coeff-highlight" title="Coordenada y${i} reemplazada">${yHTML}</span>`;
+      const yCore = `<span class="coeff-highlight" title="Coordenada y${i} reemplazada">${renderFracHTML(pt.y)}</span>`;
+      const yBadge = pt.y.isNegative() ? `(${yCore})` : yCore;
       const lHTML = `(${renderPolyHTML(basisPolys[i])})`;
       const resHTML = renderPolyHTML(scaledPolys[i]);
 
@@ -1955,7 +1959,8 @@
     for (let k = 0; k <= n; k++) {
       const ak = coeffs[k];
       if (k === 0) {
-        const akBadge0 = `<span class="coeff-highlight" title="Coeficiente a₀ tomado de la tablita">${renderFracHTML(ak, { parensIfNeg: true })}</span>`;
+        const akCore0 = `<span class="coeff-highlight" title="Coeficiente a₀ tomado de la tablita">${renderFracHTML(ak)}</span>`;
+        const akBadge0 = ak.isNegative() ? `(${akCore0})` : akCore0;
         substitutedTerms.push(akBadge0);
         termPolys.push([ak]);
         const whyTerm0 = renderWhyBoxHTML(
@@ -1978,7 +1983,8 @@
         const factorsHTML = factorNodes.map(xj => renderNewtonFactorHTML(xj)).join('');
         const factorsColoredHTML = factorNodes.map(xj => renderNewtonFactorHTML(xj, true)).join('');
         const akParen = renderFracHTML(ak, { parensIfNeg: true });
-        const akBadge = `<span class="coeff-highlight" title="Coeficiente a${k} tomado de la tablita">${akParen}</span>`;
+        const akCore = `<span class="coeff-highlight" title="Coeficiente a${k} tomado de la tablita">${renderFracHTML(ak)}</span>`;
+        const akBadge = ak.isNegative() ? `(${akCore})` : akCore;
         substitutedTerms.push(`${akBadge}${factorsColoredHTML}`);
 
         // Multiplicar los factores (x - x_0)(x - x_1)...
@@ -2340,15 +2346,301 @@
     });
   }
 
-  function createStepCardElement(stepData, index, total) {
+  // Agranda todos los paréntesis matemáticos dentro de bloques y expresiones inline
+  function enhanceMathParentheses(rootEl) {
+    if (!rootEl || typeof document === 'undefined') return;
+    const containers = [];
+    if (rootEl.matches && rootEl.matches('.math-block, .math-inline, .dd-chain-step, .dd-vertical-table td')) {
+      containers.push(rootEl);
+    }
+    if (rootEl.querySelectorAll) {
+      rootEl.querySelectorAll('.math-block, .math-inline, .dd-chain-step, .dd-vertical-table td').forEach(el => {
+        containers.push(el);
+      });
+    }
+
+    containers.forEach(container => {
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+      const textNodes = [];
+      let current;
+      while ((current = walker.nextNode())) {
+        const parent = current.parentElement;
+        if (!parent) continue;
+        if (parent.closest('.copy-poly-btn, .math-paren, .why-btn, .why-panel, .dd-coeff-tag')) continue;
+        if (/[()]/.test(current.nodeValue)) {
+          textNodes.push(current);
+        }
+      }
+
+      textNodes.forEach(tNode => {
+        const text = tNode.nodeValue;
+        const parts = text.split(/([()])/g);
+        if (parts.length <= 1) return;
+        const frag = document.createDocumentFragment();
+        parts.forEach(part => {
+          if (!part) return;
+          if (part === '(' || part === ')') {
+            const span = document.createElement('span');
+            span.className = 'math-paren';
+            span.textContent = part;
+            frag.appendChild(span);
+          } else {
+            frag.appendChild(document.createTextNode(part));
+          }
+        });
+        if (tNode.parentNode) {
+          tNode.parentNode.replaceChild(frag, tNode);
+        }
+      });
+
+      // Si un paréntesis está junto a una fracción vertical (.frac), darle altura extra (.math-paren-tall)
+      container.querySelectorAll('.math-paren').forEach(pSpan => {
+        const isOpen = pSpan.textContent === '(';
+        const adj = isOpen ? pSpan.nextSibling : pSpan.previousSibling;
+        if (!adj) return;
+        if (adj.nodeType === 1) {
+          if (adj.classList.contains('frac') || (adj.querySelector && adj.querySelector('.frac'))) {
+            pSpan.classList.add('math-paren-tall');
+          }
+        } else if (adj.nodeType === 3 && adj.nodeValue.trim() === MINUS) {
+          const nextAdj = isOpen ? adj.nextSibling : adj.previousSibling;
+          if (nextAdj && nextAdj.nodeType === 1 && (nextAdj.classList.contains('frac') || (nextAdj.querySelector && nextAdj.querySelector('.frac')))) {
+            pSpan.classList.add('math-paren-tall');
+          }
+        }
+      });
+    });
+  }
+
+  // Vista Profesional Directa (Lagrange): Solo polinomios resueltos, verificaciones y gráfica
+  function generateLagrangeDirectSummaryData(workNodes, allPlaneNodes = null, evalPoint = null) {
+    const planeNodes = allPlaneNodes || workNodes;
+    const totalNodes = workNodes.length;
+    const { basisPolys, scaledPolys, finalPoly } = computeLagrangePolynomial(workNodes);
+
+    const basisAndScaledHTML = workNodes.map((pt, i) => `
+      <div class="math-block">
+        <strong>Nodo ${i}</strong> (<span class="math-inline">${pt.x.toPlainString()}, ${pt.y.toPlainString()}</span>):
+        &nbsp; <span class="math-eq-stage">L<sub>${i}</sub>(x) = ${renderPolyHTML(basisPolys[i])}</span>
+        &nbsp; → &nbsp;
+        <span class="math-eq-stage">Y<sub>${i}</sub> · L<sub>${i}</sub>(x) = ${renderPolyHTML(scaledPolys[i])}</span>
+      </div>
+    `).join('');
+
+    const finalPolyHTML = renderPolyHTML(finalPoly);
+
+    const verificationItemsHTML = workNodes.map((pt, i) => {
+      const xVal = pt.x;
+      const evalSubHTML = renderPolyEvaluationSubstitutionHTML(finalPoly, xVal);
+      const evaluatedY = polyEval(finalPoly, xVal);
+      const whyEval = renderWhyBoxHTML(
+        `¿Cómo se calculó P(${xVal.toPlainString()}) paso a paso?`,
+        buildPolyEvaluationBreakdownHTML(finalPoly, xVal)
+      );
+
+      return `
+        <li class="verification-item" style="flex-direction: column; align-items: stretch;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+            <span class="math-inline">
+              <strong>Nodo ${i}</strong> (${pt.x.toPlainString()}, ${pt.y.toPlainString()}):
+              &nbsp; P(${renderFracHTML(xVal)}) = ${evalSubHTML} = <strong>${renderFracHTML(evaluatedY)}</strong> = y<sub>${i}</sub>
+            </span>
+            <span class="check-badge" aria-label="Verificado">✓ Cumple</span>
+          </div>
+          ${whyEval}
+        </li>
+      `;
+    }).join('');
+
+    const svgCurveAndNodes = buildCartesianSVG(
+      planeNodes,
+      finalPoly,
+      'Gráfica del polinomio de Lagrange pasando por los nodos',
+      evalPoint
+    );
+
+    return {
+      title: 'Polinomios Resueltos, Verificaciones y Gráfica',
+      html: `
+        <p class="step-explanation">
+          <strong>1. Polinomios base <span class="math-inline">L<sub>i</sub>(x)</span> y productos <span class="math-inline">Y<sub>i</sub> · L<sub>i</sub>(x)</span> resueltos:</strong>
+        </p>
+        ${basisAndScaledHTML}
+        <p class="step-explanation" style="margin-top: 0.9rem;">
+          <strong>2. Polinomio de Lagrange Final <span class="math-inline">P(x)</span>:</strong>
+        </p>
+        <div class="math-block math-final-highlight">
+          P(x) = ${finalPolyHTML}
+        </div>
+        <p class="step-explanation" style="margin-top: 0.9rem;">
+          <strong>3. Verificaciones en los ${totalNodes} nodos de trabajo (<span class="math-inline">P(x) = y</span>):</strong>
+        </p>
+        <ul class="verification-list">
+          ${verificationItemsHTML}
+        </ul>
+        <p class="step-explanation" style="margin-top: 0.9rem;">
+          <strong>4. Gráfica cartesiana interactiva:</strong>
+        </p>
+        ${svgCurveAndNodes}
+      `
+    };
+  }
+
+  // Vista Profesional Directa (Diferencias Divididas): Solo polinomios resueltos, verificaciones y gráfica
+  function generateDividedDiffDirectSummaryData(workNodes, allPlaneNodes = null, evalPoint = null) {
+    const planeNodes = allPlaneNodes || workNodes;
+    const N = workNodes.length;
+    const { coeffs, finalPoly } = computeDividedDifferencesPolynomial(workNodes);
+
+    const coeffsBadgesHTML = coeffs.map((c, ord) => `
+      <span class="check-badge" style="background-color: var(--accent-red-bg); color: var(--accent-red); border: 1px solid var(--accent-red); font-size: 0.92rem; padding: 0.25rem 0.7rem;">
+        <strong class="math-inline">a<sub>${ord}</sub> = ${renderFracHTML(c)}</strong>
+      </span>
+    `).join(' ');
+
+    const termsResolvedHTML = coeffs.map((ak, k) => {
+      if (k === 0) {
+        return `
+          <div class="math-block">
+            <strong>Término 0:</strong> &nbsp; <span class="math-eq-stage">a<sub>0</sub> = ${renderFracHTML(ak)}</span>
+          </div>
+        `;
+      }
+      let monicPoly = [new Frac(1n)];
+      const factorLabels = [];
+      for (let j = 0; j < k; j++) {
+        monicPoly = polyMul(monicPoly, [workNodes[j].x.neg(), new Frac(1n)]);
+        factorLabels.push(renderNewtonFactorHTML(workNodes[j].x));
+      }
+      const scaledTermPoly = polyScale(monicPoly, ak);
+      const akParen = renderFracHTML(ak, { parensIfNeg: true });
+      return `
+        <div class="math-block">
+          <strong>Término ${k}:</strong> &nbsp;
+          <span class="math-eq-stage">a<sub>${k}</sub>${Array.from({ length: k }, (_, j) => `(x ${MINUS} x<sub>${j}</sub>)`).join('')} = ${akParen}${factorLabels.join('')}</span>
+          &nbsp; = &nbsp;
+          <span class="math-eq-stage">${renderPolyHTML(scaledTermPoly)}</span>
+        </div>
+      `;
+    }).join('');
+
+    const finalPolyHTML = renderPolyHTML(finalPoly);
+
+    const verificationItemsHTML = workNodes.map((pt, i) => {
+      const xVal = pt.x;
+      const evalSubHTML = renderPolyEvaluationSubstitutionHTML(finalPoly, xVal);
+      const evaluatedY = polyEval(finalPoly, xVal);
+      const whyEval = renderWhyBoxHTML(
+        `¿Cómo se calculó P(${xVal.toPlainString()}) paso a paso?`,
+        buildPolyEvaluationBreakdownHTML(finalPoly, xVal)
+      );
+
+      return `
+        <li class="verification-item" style="flex-direction: column; align-items: stretch;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+            <span class="math-inline">
+              <strong>Nodo ${i}</strong> (${pt.x.toPlainString()}, ${pt.y.toPlainString()}):
+              &nbsp; P(${renderFracHTML(xVal)}) = ${evalSubHTML} = <strong>${renderFracHTML(evaluatedY)}</strong> = y<sub>${i}</sub>
+            </span>
+            <span class="check-badge" aria-label="Verificado">✓ Cumple</span>
+          </div>
+          ${whyEval}
+        </li>
+      `;
+    }).join('');
+
+    const svgCurveAndNodes = buildCartesianSVG(
+      planeNodes,
+      finalPoly,
+      'Gráfica del polinomio obtenido por Diferencias Divididas',
+      evalPoint
+    );
+
+    return {
+      title: 'Polinomios Resueltos, Verificaciones y Gráfica',
+      html: `
+        <p class="step-explanation">
+          <strong>1. Coeficientes de Diferencias Divididas (<span class="math-inline">a<sub>0</sub>, …, a<sub>${N - 1}</sub></span>) y términos desarrollados:</strong>
+        </p>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0.45rem 0 0.75rem;">
+          ${coeffsBadgesHTML}
+        </div>
+        ${termsResolvedHTML}
+        <p class="step-explanation" style="margin-top: 0.9rem;">
+          <strong>2. Polinomio Interpolador Final <span class="math-inline">P(x)</span>:</strong>
+        </p>
+        <div class="math-block math-final-highlight">
+          P(x) = ${finalPolyHTML}
+        </div>
+        <p class="step-explanation" style="margin-top: 0.9rem;">
+          <strong>3. Verificaciones en los ${N} nodos de trabajo (<span class="math-inline">P(x) = y</span>):</strong>
+        </p>
+        <ul class="verification-list">
+          ${verificationItemsHTML}
+        </ul>
+        <p class="step-explanation" style="margin-top: 0.9rem;">
+          <strong>4. Gráfica cartesiana interactiva:</strong>
+        </p>
+        ${svgCurveAndNodes}
+      `
+    };
+  }
+
+  // Parsea múltiples nodos en bloque para Modo Profesional (ej. "(-1, 1), (1, -3), (2, -1)" o una pareja "x, y" por línea)
+  function parseBulkNodesText(rawText) {
+    if (!rawText || !rawText.trim()) {
+      return { error: 'Escribe o pega al menos 2 pares de coordenadas (x, y).' };
+    }
+    const cleaned = rawText.trim();
+    const pairs = [];
+
+    // Si contiene paréntesis tipo (x, y), extraer cada par entre paréntesis
+    const parenMatches = [...cleaned.matchAll(/\(\s*([^,;()\s]+)\s*[,;\s]\s*([^,;()\s]+)\s*\)/g)];
+    if (parenMatches.length >= 2) {
+      for (let i = 0; i < parenMatches.length; i++) {
+        const xStr = parenMatches[i][1].trim();
+        const yStr = parenMatches[i][2].trim();
+        const rx = parseInputToFrac(xStr);
+        if (rx.error) return { error: `Nodo ${i + 1} (x = "${xStr}"): ${rx.error}` };
+        const ry = parseInputToFrac(yStr);
+        if (ry.error) return { error: `Nodo ${i + 1} (y = "${yStr}"): ${ry.error}` };
+        pairs.push({ x: rx.value.toPlainString(), y: ry.value.toPlainString() });
+      }
+      return { nodes: pairs };
+    }
+
+    // Si no usa paréntesis, separar por saltos de línea o punto y coma
+    const lines = cleaned.split(/[\r\n;]+/).map(l => l.trim()).filter(Boolean);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].replace(/^[()]+|[()]+$/g, '').trim();
+      const parts = line.split(/[,|\s]+/).map(s => s.trim()).filter(Boolean);
+      if (parts.length < 2) {
+        return { error: `Línea ${i + 1} ("${lines[i]}"): escribe dos números separados por coma o espacio (ej. -1, 1).` };
+      }
+      const rx = parseInputToFrac(parts[0]);
+      if (rx.error) return { error: `Línea ${i + 1} (x = "${parts[0]}"): ${rx.error}` };
+      const ry = parseInputToFrac(parts[1]);
+      if (ry.error) return { error: `Línea ${i + 1} (y = "${parts[1]}"): ${ry.error}` };
+      pairs.push({ x: rx.value.toPlainString(), y: ry.value.toPlainString() });
+    }
+
+    if (pairs.length < 2) {
+      return { error: 'Se necesitan al menos 2 nodos para interpolar.' };
+    }
+    return { nodes: pairs };
+  }
+
+  function createStepCardElement(stepData, index, total, customBadgeText = null) {
     const section = document.createElement('section');
     section.className = 'notebook-card step-card';
     section.setAttribute('data-step-index', index);
     section.setAttribute('tabindex', '-1');
+    const titlePrefix = customBadgeText ? '' : `Paso ${index + 1}: `;
+    const badgeLabel = customBadgeText || `Paso ${index + 1} de ${total}`;
     section.innerHTML = `
       <div class="step-header">
-        <h2 class="step-title">Paso ${index + 1}: ${stepData.title}</h2>
-        <span class="step-badge">Paso ${index + 1} de ${total}</span>
+        <h2 class="step-title">${titlePrefix}${stepData.title}</h2>
+        <span class="step-badge">${badgeLabel}</span>
       </div>
       <div class="step-body">
         ${stepData.html}
@@ -2360,6 +2652,7 @@
       });
     }
     enhanceFinalHighlightCopyButtons(section);
+    enhanceMathParentheses(section);
     return section;
   }
 
@@ -2375,6 +2668,7 @@
     // Mejorar también el cuadro de P(x) lateral en las calculadoras si existe
     document.querySelectorAll('#active-poly-box, #dd-active-poly-box').forEach(box => {
       enhanceFinalHighlightCopyButtons(box);
+      enhanceMathParentheses(box);
     });
 
     const board = stepsContainer.parentElement;
@@ -3000,6 +3294,10 @@
     buildDividedDiffHTMLTable,
     generateAllStepsData,
     generateDividedDiffStepsData,
+    generateLagrangeDirectSummaryData,
+    generateDividedDiffDirectSummaryData,
+    parseBulkNodesText,
+    enhanceMathParentheses,
     scrollToElement,
     createStepCardElement,
     syncStepJumperBar,

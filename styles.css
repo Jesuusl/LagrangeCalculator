@@ -1505,27 +1505,224 @@ sub, sup {
   color: #ffffff;
 }
 
-/* Resaltado en color para los coeficientes y valores reemplazados al sustituir */
+/* Resaltado en color para los coeficientes y valores reemplazados al sustituir (sin rectángulo) */
 .coeff-highlight {
-  display: inline-block;
-  padding: 0.02rem 0.34rem;
-  margin: 0 0.06rem;
-  border-radius: 4px;
-  background-color: var(--accent-red-bg);
-  border: 1px solid var(--accent-red);
+  display: inline;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
   color: var(--accent-red);
   font-weight: 700;
 }
 
 .sub-x-highlight {
-  display: inline-block;
-  padding: 0.02rem 0.32rem;
-  margin: 0 0.05rem;
-  border-radius: 4px;
-  background-color: var(--check-green-bg);
-  border: 1px solid var(--check-green);
+  display: inline;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
   color: var(--check-green);
   font-weight: 700;
+}
+
+/* Paréntesis matemáticos más grandes y claros */
+.math-paren {
+  display: inline-block;
+  font-size: 1.3em;
+  font-weight: 500;
+  font-style: normal;
+  line-height: 1;
+  vertical-align: -0.05em;
+  margin: 0 0.02em;
+}
+
+.math-paren-tall {
+  font-size: 1.52em;
+  vertical-align: middle;
+}
+
+/* Modo Profesional en Calculadoras (Nodos ilimitados + Selector de vista) */
+.calc-mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  margin-bottom: 0.85rem;
+}
+
+.calc-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.calc-mode-btn:hover {
+  color: var(--ink-primary);
+}
+
+.calc-mode-btn.is-active {
+  background-color: var(--bg-card);
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
+  box-shadow: var(--shadow-sm);
+}
+
+.pro-options-panel {
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--accent-blue);
+  border-left: 3px solid var(--accent-blue);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.pro-options-panel[hidden] {
+  display: none !important;
+}
+
+.pro-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.pro-panel-title {
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--accent-blue);
+}
+
+.pro-unlimited-badge {
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--check-green);
+  background-color: var(--check-green-bg);
+  border: 1px solid var(--check-green);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+
+.pro-view-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pro-view-radio-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-family: var(--font-ui);
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--ink-primary);
+  cursor: pointer;
+  line-height: 1.3;
+  padding: 0.3rem 0.4rem;
+  border-radius: 5px;
+  transition: background-color 0.12s ease;
+}
+
+.pro-view-radio-label:hover {
+  background-color: var(--accent-blue-soft);
+}
+
+.pro-view-radio-label input[type="radio"] {
+  accent-color: var(--accent-blue);
+  margin: 0.15rem 0 0 0;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.pro-step-select-wrap {
+  margin-top: 0.15rem;
+  padding-left: 1.35rem;
+}
+
+.pro-step-select-wrap[hidden] {
+  display: none !important;
+}
+
+.pro-step-select {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink-primary);
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.pro-bulk-details {
+  border-top: 1px dashed var(--border-strong);
+  padding-top: 0.45rem;
+  margin-top: 0.1rem;
+}
+
+.pro-bulk-summary {
+  font-family: var(--font-ui);
+  font-size: 0.79rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pro-bulk-body {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pro-bulk-textarea {
+  width: 100%;
+  min-height: 74px;
+  padding: 0.45rem 0.55rem;
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  color: var(--ink-primary);
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  resize: vertical;
+}
+
+.table-wrapper.is-pro-scrollable {
+  max-height: 330px;
+  overflow-y: auto;
+}
+
+.table-wrapper.is-pro-scrollable .nodes-input-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 /* Resaltado interactivo al pasar el mouse sobre cualquier celda de la tablita */

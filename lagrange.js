@@ -90,12 +90,28 @@
     }
 
     toNumber() {
-      return Number(this.num) / Number(this.den);
+      if (this.num === 0n) return 0;
+      const sign = this.num < 0n ? -1 : 1;
+      const absN = this.num < 0n ? -this.num : this.num;
+      const d = this.den;
+      const LIMIT = 10n ** 280n;
+      if (absN < LIMIT && d < LIMIT) {
+        return sign * (Number(absN) / Number(d));
+      }
+      const nStr = absN.toString();
+      const dStr = d.toString();
+      const nLead = Number(nStr.slice(0, 16));
+      const dLead = Number(dStr.slice(0, 16));
+      const shift = (nStr.length - Math.min(16, nStr.length)) - (dStr.length - Math.min(16, dStr.length));
+      return sign * (nLead / dLead) * Math.pow(10, shift);
     }
 
     toDecimalString(maxDecimals = 4) {
       const val = this.toNumber();
       if (!isFinite(val)) return '';
+      if (val !== 0 && (Math.abs(val) < Math.pow(10, -maxDecimals) || Math.abs(val) >= 1e7)) {
+        return val.toExponential(2).replace(/^-/, MINUS).replace('+', '');
+      }
       const rounded = Number(val.toFixed(maxDecimals));
       const str = rounded.toString();
       return val < 0 ? MINUS + str.replace(/^-/, '') : str;
@@ -234,14 +250,50 @@
   }
 
   // ===========================================================================
-  // 3. Maquetación HTML de fracciones y polinomios
+  // 3. Maquetación HTML de fracciones y polinomios (con soporte anti-colapso y modo decimal)
   // ===========================================================================
+  function compactArrayWithEllipsis(items, headCount = 4, tailCount = 2, sep = '', ellipsisStr = ' · … · ') {
+    if (!items || items.length <= headCount + tailCount + 2) {
+      return items.join(sep);
+    }
+    const head = items.slice(0, headCount).join(sep);
+    const tail = items.slice(items.length - tailCount).join(sep);
+    return `${head}${ellipsisStr}${tail}`;
+  }
+
+  function formatCompactDecimalAbs(absNum, den) {
+    const f = new Frac(absNum, den);
+    const val = f.toNumber();
+    if (!isFinite(val) || val === 0) return '0';
+    if (val < 1e-4 || val >= 1e7) {
+      return val.toExponential(2).replace('-', MINUS).replace('+', '');
+    }
+    return Number(val.toFixed(4)).toString();
+  }
+
   function renderVerticalFrac(absNum, den) {
+    const numStr = absNum.toString();
+    const denStr = den.toString();
+    const isHuge = numStr.length > 7 || denStr.length > 7;
+    const decStr = formatCompactDecimalAbs(absNum, den);
+    const exactTooltip = numStr.length + denStr.length > 80
+      ? `Fracción exacta (${numStr.length}/${denStr.length} dígitos) ≈ ${decStr}`
+      : `Exacto: ${numStr}/${denStr} ≈ ${decStr}`;
+
+    if (isHuge) {
+      return (
+        `<span class="frac frac-is-huge" title="${exactTooltip}">` +
+          `<span class="frac-dec-view">≈ ${decStr}</span>` +
+        `</span>`
+      );
+    }
+
     return (
-      '<span class="frac">' +
-        '<span class="frac-num">' + absNum.toString() + '</span>' +
+      '<span class="frac" title="' + exactTooltip + '">' +
+        '<span class="frac-num">' + numStr + '</span>' +
         '<span class="frac-bar">/</span>' +
-        '<span class="frac-den">' + den.toString() + '</span>' +
+        '<span class="frac-den">' + denStr + '</span>' +
+        '<span class="frac-dec-view">' + decStr + '</span>' +
       '</span>'
     );
   }
@@ -254,7 +306,13 @@
 
     let core;
     if (frac.isInteger()) {
-      core = sign + absN.toString();
+      const nStr = absN.toString();
+      if (nStr.length > 9) {
+        const decStr = formatCompactDecimalAbs(absN, 1n);
+        core = `<span class="frac frac-is-huge" title="Entero exacto de ${nStr.length} dígitos">${sign}≈ ${decStr}</span>`;
+      } else {
+        core = sign + nStr;
+      }
       if (parensIfNeg && isNeg) {
         return '(' + core + ')';
       }
@@ -402,6 +460,33 @@
   // Explica paso a paso la sustitución de factores (x - x_j), la multiplicación de paréntesis (todos contra todos + cancelaciones) y la multiplicación por el coeficiente externo
   function buildFactorMultiplicationBreakdownHTML(factorNodes, factorNodeIndices, outerCoeff, outerCoeffLabel, useNewtonZero = false) {
     const items = [];
+
+    // Modo compacto anti-colapso cuando hay más de 7 factores (ej. > 8 nodos)
+    if (factorNodes.length > 7) {
+      let currentPoly = [new Frac(1n)];
+      for (const xj of factorNodes) {
+        currentPoly = polyMul(currentPoly, [xj.neg(), new Frac(1n)]);
+      }
+      const finalScaledPoly = polyScale(currentPoly, outerCoeff);
+      const sampleFactors = factorNodes.slice(0, 3).map(r => useNewtonZero ? renderNewtonFactorHTML(r) : renderNumeratorFactorHTML(r, factorNodes.length)).join('');
+      const lastFactor = useNewtonZero ? renderNewtonFactorHTML(factorNodes[factorNodes.length - 1]) : renderNumeratorFactorHTML(factorNodes[factorNodes.length - 1], factorNodes.length);
+      return `
+        <ol class="why-step-list" style="list-style: none; padding-left: 0;">
+          <li>
+            <strong>1. Sustitución de los ${factorNodes.length} factores:</strong>
+            Reemplazamos cada nodo en los factores <span class="math-inline">${sampleFactors} · … · ${lastFactor}</span> y dejamos afuera el coeficiente <span class="math-inline">${outerCoeffLabel} = ${renderFracHTML(outerCoeff)}</span>.
+          </li>
+          <li>
+            <strong>2. Producto de todos los paréntesis:</strong>
+            Al multiplicar progresivamente los ${factorNodes.length} binomios y agrupar términos semejantes obtenemos <span class="math-inline"><strong>(${renderPolyHTML(currentPoly)})</strong></span>.
+          </li>
+          <li>
+            <strong>3. Multiplicación por <span class="math-inline">${outerCoeffLabel}</span>:</strong>
+            Distribuimos <span class="math-inline">${renderFracHTML(outerCoeff, { parensIfNeg: true })}</span> por cada término y resulta <span class="math-inline"><strong>${renderPolyHTML(finalScaledPoly)}</strong></span>.
+          </li>
+        </ol>
+      `;
+    }
 
     // 1. Por qué quedó así la sustitución de los factores
     const subBullets = factorNodes.map((xj, idx) => {
@@ -558,6 +643,25 @@
   function buildDegreeGroupingBreakdownHTML(deg, polyList, sourceLabels, totalAtDeg) {
     const varLabel = deg === 0 ? 'término independiente (sin x)' : (deg === 1 ? 'x' : `x<sup>${deg}</sup>`);
     const varShort = deg === 0 ? '' : (deg === 1 ? 'x' : `x<sup>${deg}</sup>`);
+
+    if (polyList.length > 8) {
+      let nonZeroCount = 0;
+      const sampleCoeffs = [];
+      for (let i = 0; i < polyList.length; i++) {
+        const p = polyList[i];
+        const c = deg < p.length ? p[deg] : new Frac(0n);
+        if (!c.isZero()) {
+          nonZeroCount++;
+          if (sampleCoeffs.length < 4) {
+            sampleCoeffs.push(`<strong>${sourceLabels[i]}</strong> aporta <span class="math-inline">${renderFracHTML(c)}</span>`);
+          }
+        }
+      }
+      return `
+        <div>Se reúnen los ${nonZeroCount} coeficientes de grado ${deg} (<span class="math-inline">${varLabel}</span>) provenientes de los ${polyList.length} polinomios (${sampleCoeffs.join(', ')}${nonZeroCount > 4 ? ', …' : ''}) y al sumarlos se obtiene <span class="math-inline"><strong>${renderTermWithSignHTML(totalAtDeg, deg, true)}</strong></span>.</div>
+      `;
+    }
+
     const fromBullets = [];
     const nonZeroItems = [];
 
@@ -603,6 +707,13 @@
 
   // Explica paso a paso cómo se evalúa P(x) en un valor xVal (potencias, productos y suma)
   function buildPolyEvaluationBreakdownHTML(poly, xVal) {
+    if (poly.length > 9) {
+      const totalVal = polyEval(poly, xVal);
+      return `
+        <div>Se sustituye <span class="math-inline">x = ${renderFracHTML(xVal)}</span> en cada término del polinomio de grado <span class="math-inline">${poly.length - 1}</span> y al sumar todas las potencias evaluadas se obtiene exactamente <span class="math-inline"><strong>P(${xVal.toPlainString()}) = ${renderFracHTML(totalVal)}</strong></span>.</div>
+      `;
+    }
+
     const termSteps = [];
     const evaluatedParts = [];
 
@@ -633,6 +744,77 @@
       <div><strong>1. Calculamos cada término reemplazando <span class="math-inline">x = ${renderFracHTML(xVal)}</span>:</strong></div>
       <ul class="why-sublist">${termSteps.join('')}</ul>
       <div><strong>2. Sumamos todos los resultados obtenidos:</strong> <span class="math-inline">${sumLine} = <strong>${renderFracHTML(totalVal)}</strong></span>.</div>
+    `;
+  }
+
+  // Construye la sección de verificaciones P(x) = y con agrupación inteligente anti-colapso cuando hay muchos nodos
+  function buildVerificationSectionHTML(workNodes, finalPoly) {
+    const total = workNodes.length;
+    const isLargeSet = total > 6;
+    const VISIBLE_LIMIT = 5;
+
+    function renderSingleVerificationItem(pt, i) {
+      const xVal = pt.x;
+      const evaluatedY = isLargeSet && i >= VISIBLE_LIMIT ? pt.y : polyEval(finalPoly, xVal);
+      if (total > 8) {
+        return `
+          <li class="verification-item">
+            <span class="math-inline">
+              <strong>Nodo ${i}</strong> (${pt.x.toPlainString()}, ${pt.y.toPlainString()}):
+              &nbsp; P(${renderFracHTML(xVal)}) = <strong>${renderFracHTML(evaluatedY)}</strong> = y<sub>${i}</sub>
+            </span>
+            <span class="check-badge" aria-label="Verificado">✓ Cumple</span>
+          </li>
+        `;
+      }
+      const evalSubHTML = renderPolyEvaluationSubstitutionHTML(finalPoly, xVal);
+      const whyEval = renderWhyBoxHTML(
+        `¿Cómo se calculó P(${xVal.toPlainString()}) paso a paso?`,
+        buildPolyEvaluationBreakdownHTML(finalPoly, xVal)
+      );
+      return `
+        <li class="verification-item" style="flex-direction: column; align-items: stretch;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+            <span class="math-inline">
+              <strong>Nodo ${i}</strong> (${pt.x.toPlainString()}, ${pt.y.toPlainString()}):
+              &nbsp; P(${renderFracHTML(xVal)}) = ${evalSubHTML} = <strong>${renderFracHTML(evaluatedY)}</strong> = y<sub>${i}</sub>
+            </span>
+            <span class="check-badge" aria-label="Verificado">✓ Cumple</span>
+          </div>
+          ${whyEval}
+        </li>
+      `;
+    }
+
+    const summaryBanner = total > 4
+      ? `<div class="verification-summary-banner">✓ <strong>Verificación completada:</strong> los <strong>${total} nodos de trabajo</strong> cumplen exactamente <span class="math-inline">P(x) = y</span>.</div>`
+      : '';
+
+    if (!isLargeSet) {
+      const allItems = workNodes.map((pt, i) => renderSingleVerificationItem(pt, i)).join('');
+      return `${summaryBanner}<ul class="verification-list">${allItems}</ul>`;
+    }
+
+    const visibleItems = workNodes.slice(0, VISIBLE_LIMIT).map((pt, i) => renderSingleVerificationItem(pt, i)).join('');
+    const hiddenItems = workNodes.slice(VISIBLE_LIMIT).map((pt, idx) => renderSingleVerificationItem(pt, VISIBLE_LIMIT + idx)).join('');
+    const remainingCount = total - VISIBLE_LIMIT;
+
+    return `
+      ${summaryBanner}
+      <ul class="verification-list" style="margin-bottom: 0.45rem;">
+        ${visibleItems}
+      </ul>
+      <details class="why-box verification-more-box">
+        <summary class="why-btn">
+          <span class="why-icon" aria-hidden="true">+</span>
+          <span class="why-btn-text">Ver las ${remainingCount} verificaciones restantes (Nodo ${VISIBLE_LIMIT} al Nodo ${total - 1})</span>
+        </summary>
+        <div class="why-panel is-scrollable-panel">
+          <ul class="verification-list" style="margin: 0;">
+            ${hiddenItems}
+          </ul>
+        </div>
+      </details>
     `;
   }
 
@@ -804,6 +986,7 @@
 
     let pointsHTML = '';
     let hasInactive = false;
+    const hideStaticLabels = planeNodes.length > 12;
     planeNodes.forEach((pt) => {
       const isWork = pt.active !== false;
       if (!isWork) hasInactive = true;
@@ -814,19 +997,21 @@
       const offsetX = sx > width - padRight - 95 ? -10 : 10;
       const anchor = sx > width - padRight - 95 ? 'end' : 'start';
       const offsetY = sy < padTop + 24 ? 18 : -10;
+      const rWork = hideStaticLabels ? '4.2' : '5.5';
+      const rInact = hideStaticLabels ? '3.8' : '5';
 
       if (isWork) {
         pointsHTML += `
           <g>
-            <circle cx="${sx.toFixed(2)}" cy="${sy.toFixed(2)}" r="5.5" fill="var(--svg-point)" stroke="var(--bg-card)" stroke-width="2" />
-            <text x="${(sx + offsetX).toFixed(2)}" y="${(sy + offsetY).toFixed(2)}" text-anchor="${anchor}" fill="var(--ink-primary)" font-size="13" font-weight="600" stroke="var(--svg-label-bg)" stroke-width="4" paint-order="stroke">${labelText}</text>
+            <circle cx="${sx.toFixed(2)}" cy="${sy.toFixed(2)}" r="${rWork}" fill="var(--svg-point)" stroke="var(--bg-card)" stroke-width="1.8"><title>Nodo ${labelText}</title></circle>
+            ${hideStaticLabels ? '' : `<text x="${(sx + offsetX).toFixed(2)}" y="${(sy + offsetY).toFixed(2)}" text-anchor="${anchor}" fill="var(--ink-primary)" font-size="13" font-weight="600" stroke="var(--svg-label-bg)" stroke-width="4" paint-order="stroke">${labelText}</text>`}
           </g>
         `;
       } else {
         pointsHTML += `
           <g>
-            <circle cx="${sx.toFixed(2)}" cy="${sy.toFixed(2)}" r="5" fill="var(--bg-paper)" stroke="var(--svg-point-inactive)" stroke-width="2" stroke-dasharray="2.5 2" />
-            <text x="${(sx + offsetX).toFixed(2)}" y="${(sy + offsetY).toFixed(2)}" text-anchor="${anchor}" fill="var(--ink-muted)" font-size="12" stroke="var(--svg-label-bg)" stroke-width="4" paint-order="stroke">${labelText}</text>
+            <circle cx="${sx.toFixed(2)}" cy="${sy.toFixed(2)}" r="${rInact}" fill="var(--bg-paper)" stroke="var(--svg-point-inactive)" stroke-width="1.8" stroke-dasharray="2.5 2"><title>Solo en plano ${labelText}</title></circle>
+            ${hideStaticLabels ? '' : `<text x="${(sx + offsetX).toFixed(2)}" y="${(sy + offsetY).toFixed(2)}" text-anchor="${anchor}" fill="var(--ink-muted)" font-size="12" stroke="var(--svg-label-bg)" stroke-width="4" paint-order="stroke">${labelText}</text>`}
           </g>
         `;
       }
@@ -941,7 +1126,7 @@
         <p class="step-explanation">
           ${introExplanation}
         </p>
-        <div class="table-wrapper">
+        <div class="table-wrapper ${planeNodes.length > 8 ? 'is-pro-scrollable' : ''}">
           <table class="nodes-summary-table" aria-label="Tabla de nodos">
             <thead>
               <tr>
@@ -960,9 +1145,10 @@
     });
 
     // PASO 2: Planteamos P(x)
-    const sumTermsSymbolic = workNodes.map((_, i) => `L<sub>${i}</sub>(x)Y<sub>${i}</sub>`).join(' + ');
+    const sumTermsArr = workNodes.map((_, i) => `L<sub>${i}</sub>(x)Y<sub>${i}</sub>`);
+    const sumTermsSymbolic = compactArrayWithEllipsis(sumTermsArr, 4, 2, ' + ', ' + … + ');
 
-    const generalFormulasHTML = workNodes.map((_, i) => {
+    const generalFormulaItems = workNodes.map((_, i) => {
       const numFactors = [];
       const denFactors = [];
       for (let j = 0; j < totalNodes; j++) {
@@ -974,13 +1160,28 @@
         <div class="math-block">
           L<sub>${i}</sub>(x) =
           <span class="frac">
-            <span class="frac-num">${numFactors.join('')}</span>
+            <span class="frac-num">${compactArrayWithEllipsis(numFactors, 4, 2, '', ' · … · ')}</span>
             <span class="frac-bar">/</span>
-            <span class="frac-den">${denFactors.join('')}</span>
+            <span class="frac-den">${compactArrayWithEllipsis(denFactors, 4, 2, '', ' · … · ')}</span>
           </span>
         </div>
       `;
-    }).join('');
+    });
+
+    const generalFormulasHTML = totalNodes > 6
+      ? `
+        ${generalFormulaItems.slice(0, 4).join('')}
+        <details class="why-box">
+          <summary class="why-btn">
+            <span class="why-icon" aria-hidden="true">+</span>
+            <span class="why-btn-text">Ver las ${totalNodes - 4} fórmulas simbólicas restantes (L<sub>4</sub> a L<sub>${totalNodes - 1}</sub>)</span>
+          </summary>
+          <div class="why-panel is-scrollable-panel">
+            ${generalFormulaItems.slice(4).join('')}
+          </div>
+        </details>
+      `
+      : generalFormulaItems.join('');
 
     steps.push({
       title: 'Planteamos P(x)',
@@ -1012,21 +1213,20 @@
         }
       }
 
-      const numFactorsHTML = otherNodes
-        .map(xj => renderNumeratorFactorHTML(xj, otherNodes.length))
-        .join('');
+      const numFactorsArr = otherNodes.map(xj => renderNumeratorFactorHTML(xj, otherNodes.length));
+      const numFactorsHTML = compactArrayWithEllipsis(numFactorsArr, 4, 2, '', ' · … · ');
 
-      const numFactorsColoredHTML = otherNodes
-        .map(xj => renderNumeratorFactorHTML(xj, otherNodes.length, true))
-        .join('');
+      const numFactorsColoredArr = otherNodes.map(xj => renderNumeratorFactorHTML(xj, otherNodes.length, true));
+      const numFactorsColoredHTML = compactArrayWithEllipsis(numFactorsColoredArr, 4, 2, '', ' · … · ');
 
-      const denSubFactorsHTML = otherNodes.map(xj => {
+      const denSubFactorsArr = otherNodes.map(xj => {
         const xiCore = `<span class="coeff-highlight" title="Nodo propio x${i}">${renderFracHTML(xi)}</span>`;
         const xiStr = xi.isNegative() ? `(${xiCore})` : xiCore;
         const xjCore = `<span class="sub-x-highlight" title="Otro nodo">${renderFracHTML(xj)}</span>`;
         const xjStr = xj.isNegative() ? `(${xjCore})` : xjCore;
         return `(${xiStr} ${MINUS} ${xjStr})`;
-      }).join('');
+      });
+      const denSubFactorsHTML = compactArrayWithEllipsis(denSubFactorsArr, 4, 2, '', ' · … · ');
 
       const denDiffs = otherNodes.map(xj => xi.sub(xj));
       let D = new Frac(1n);
@@ -1034,9 +1234,8 @@
         D = D.mul(diff);
       }
 
-      const denDiffsHTML = denDiffs
-        .map(d => `(${renderFracHTML(d)})`)
-        .join('');
+      const denDiffsArr = denDiffs.map(d => `(${renderFracHTML(d)})`);
+      const denDiffsHTML = compactArrayWithEllipsis(denDiffsArr, 4, 2, '', ' · … · ');
 
       const denStepsChain = otherNodes.length > 1
         ? `${denSubFactorsHTML} = ${denDiffsHTML} = <span class="coeff-highlight">${renderFracHTML(D)}</span>`
@@ -1073,15 +1272,17 @@
       }
 
       if (otherNodes.length >= 2) {
-        const unsimplifiedFirstTwo = renderUnsimplifiedTwoFactorsHTML(otherNodes[0], otherNodes[1]);
-        const remainingFactorsHTML = otherNodes
-          .slice(2)
-          .map(xj => renderNumeratorFactorHTML(xj, otherNodes.length))
-          .join('');
-        if (isDOne && remainingFactorsHTML === '') {
-          pushStage(`${unsimplifiedFirstTwo}`);
-        } else {
-          pushStage(`${outerFracHTML}(${unsimplifiedFirstTwo})${remainingFactorsHTML}`);
+        if (otherNodes.length <= 7) {
+          const unsimplifiedFirstTwo = renderUnsimplifiedTwoFactorsHTML(otherNodes[0], otherNodes[1]);
+          const remainingFactorsHTML = otherNodes
+            .slice(2)
+            .map(xj => renderNumeratorFactorHTML(xj, otherNodes.length))
+            .join('');
+          if (isDOne && remainingFactorsHTML === '') {
+            pushStage(`${unsimplifiedFirstTwo}`);
+          } else {
+            pushStage(`${outerFracHTML}(${unsimplifiedFirstTwo})${remainingFactorsHTML}`);
+          }
         }
 
         const simplifiedMonicHTML = renderPolyHTML(monicPoly);
@@ -1099,10 +1300,11 @@
       const fullChainHTML = `<span class="math-eq-stage">L<sub>${i}</sub>(x)</span> = ` + chainStages.join(' = ');
 
       // Explicación (?) para a) Sustitución en L_i(x)
+      const otherNodesSampleList = otherIndices.slice(0, 6).map(j => `x<sub>${j}</sub> = ${renderFracHTML(workNodes[j].x)}`).join(', ') + (otherIndices.length > 6 ? ', …' : '');
       const whySubA = renderWhyBoxHTML(
         `¿Por qué quedó así la sustitución en L${i}(x)?`,
         `
-          <div>Como estamos calculando <strong><span class="math-inline">L<sub>${i}</sub>(x)</span></strong>, el nodo propio es <span class="math-inline">x<sub>${i}</sub> = ${renderFracHTML(xi)}</span> y usamos todos los demás nodos (<span class="math-inline">${otherIndices.map(j => `x<sub>${j}</sub> = ${renderFracHTML(workNodes[j].x)}`).join(', ')}</span>):</div>
+          <div>Como estamos calculando <strong><span class="math-inline">L<sub>${i}</sub>(x)</span></strong>, el nodo propio es <span class="math-inline">x<sub>${i}</sub> = ${renderFracHTML(xi)}</span> y usamos todos los demás nodos (<span class="math-inline">${otherNodesSampleList}</span>):</div>
           <ul class="why-sublist">
             <li><strong>Arriba (numerador):</strong> escribimos <span class="math-inline">(x ${MINUS} x<sub>j</sub>)</span> para cada nodo <span class="math-inline">j ≠ ${i}</span>. Si <span class="math-inline">x<sub>j</sub></span> es negativo, menos por menos da más y queda <span class="math-inline">(x + |x<sub>j</sub>|)</span>.</li>
             <li><strong>Abajo (denominador):</strong> copiamos exactamente la misma estructura de arriba, pero reemplazando la letra <span class="math-inline">x</span> por el valor fijo <span class="math-inline">x<sub>${i}</sub> = ${renderFracHTML(xi)}</span>.</li>
@@ -1111,14 +1313,18 @@
       );
 
       // Explicación (?) para b) Denominador D
-      const denEachBullets = otherNodes.map((xj, idx) => {
+      const denBulletsSlice = otherNodes.slice(0, 6).map((xj, idx) => {
         const jIdx = otherIndices[idx];
         const diff = denDiffs[idx];
         const signNote = xj.isNegative()
           ? ` (como restamos un negativo, menos por menos da más: <span class="math-inline">${renderFracHTML(xi)} + ${renderFracHTML(xj.abs())}</span>)`
           : '';
         return `<li>Restamos <span class="math-inline">x<sub>${i}</sub> ${MINUS} x<sub>${jIdx}</sub> = ${renderFracHTML(xi, { parensIfNeg: true })} ${MINUS} ${renderFracHTML(xj, { parensIfNeg: true })}${signNote} = <strong>${renderFracHTML(diff)}</strong></span>.</li>`;
-      }).join('');
+      });
+      if (otherNodes.length > 6) {
+        denBulletsSlice.push(`<li>… y así sucesivamente para los ${otherNodes.length - 6} factores restantes del denominador.</li>`);
+      }
+      const denEachBullets = denBulletsSlice.join('');
 
       const whySubB = renderWhyBoxHTML(
         '¿Cómo se restó y multiplicó el denominador?',
@@ -1174,36 +1380,48 @@
     // PASO 4: Multiplicamos cada L por su y
     const scaledPolys = workNodes.map((pt, i) => polyScale(basisPolys[i], pt.y));
 
-    const pCombinedWithY = workNodes.map((pt, i) => {
+    const pCombinedArr = workNodes.map((pt, i) => {
       const yCore = `<span class="coeff-highlight" title="Coordenada y${i} reemplazada">${renderFracHTML(pt.y)}</span>`;
       const yHTML = pt.y.isNegative() ? `(${yCore})` : yCore;
       const lHTML = `(${renderPolyHTML(basisPolys[i])})`;
       return `${yHTML}${lHTML}`;
-    }).join(' + ');
+    });
+    const pCombinedWithY = compactArrayWithEllipsis(pCombinedArr, 4, 2, ' + ', ' + … + ');
 
     const whyStep4Sub = renderWhyBoxHTML(
       '¿Por qué sustituimos así cada Yᵢ · Lᵢ(x)?',
       `
         <div>En la fórmula <span class="math-inline">P(x) = L<sub>0</sub>(x)Y<sub>0</sub> + L<sub>1</sub>(x)Y<sub>1</sub> + …</span> reemplazamos cada <span class="math-inline">Y<sub>i</sub></span> por la coordenada <span class="math-inline">y</span> de su nodo y cada <span class="math-inline">L<sub>i</sub>(x)</span> por el polinomio que acabamos de hallar:</div>
         <ul class="why-sublist">
-          ${workNodes.map((pt, i) => `<li>Para el nodo <span class="math-inline">i = ${i}</span>: <span class="math-inline">y<sub>${i}</sub> = <strong>${renderFracHTML(pt.y)}</strong></span> multiplica a <span class="math-inline">L<sub>${i}</sub>(x) = <strong>(${renderPolyHTML(basisPolys[i])})</strong></span>${pt.y.isNegative() ? ' (se encierra entre paréntesis por ser negativo)' : ''}.</li>`).join('')}
+          ${workNodes.slice(0, 6).map((pt, i) => `<li>Para el nodo <span class="math-inline">i = ${i}</span>: <span class="math-inline">y<sub>${i}</sub> = <strong>${renderFracHTML(pt.y)}</strong></span> multiplica a <span class="math-inline">L<sub>${i}</sub>(x) = <strong>(${renderPolyHTML(basisPolys[i])})</strong></span>${pt.y.isNegative() ? ' (se encierra entre paréntesis por ser negativo)' : ''}.</li>`).join('')}
+          ${totalNodes > 6 ? `<li>… y del mismo modo para los ${totalNodes - 6} nodos restantes.</li>` : ''}
         </ul>
       `
     );
 
-    const eachDistributedHTML = workNodes.map((pt, i) => {
+    const eachDistributedItems = workNodes.map((pt, i) => {
       const yHTML = renderFracHTML(pt.y, { parensIfNeg: true });
       const yCore = `<span class="coeff-highlight" title="Coordenada y${i} reemplazada">${renderFracHTML(pt.y)}</span>`;
       const yBadge = pt.y.isNegative() ? `(${yCore})` : yCore;
       const lHTML = `(${renderPolyHTML(basisPolys[i])})`;
       const resHTML = renderPolyHTML(scaledPolys[i]);
 
+      if (totalNodes > 8 && i >= 5) {
+        return `
+          <div class="math-block">
+            <span class="math-eq-stage">Y<sub>${i}</sub> · L<sub>${i}</sub>(x)</span> = <span class="math-eq-stage">${resHTML}</span>
+          </div>
+        `;
+      }
+
       const termProdBullets = [];
       for (let d = basisPolys[i].length - 1; d >= 0; d--) {
         const c = basisPolys[i][d];
         if (c.isZero()) continue;
         const prod = c.mul(pt.y);
-        termProdBullets.push(`<li>Multiplicamos <span class="math-inline">${yHTML} · (${renderTermWithSignHTML(c, d, true)}) = <strong>${renderTermWithSignHTML(prod, d, true)}</strong></span></li>`);
+        if (termProdBullets.length < 6) {
+          termProdBullets.push(`<li>Multiplicamos <span class="math-inline">${yHTML} · (${renderTermWithSignHTML(c, d, true)}) = <strong>${renderTermWithSignHTML(prod, d, true)}</strong></span></li>`);
+        }
       }
 
       const whyDistI = renderWhyBoxHTML(
@@ -1221,7 +1439,22 @@
         </div>
         ${whyDistI}
       `;
-    }).join('');
+    });
+
+    const eachDistributedHTML = totalNodes > 6
+      ? `
+        ${eachDistributedItems.slice(0, 5).join('')}
+        <details class="why-box">
+          <summary class="why-btn">
+            <span class="why-icon" aria-hidden="true">+</span>
+            <span class="why-btn-text">Ver los ${totalNodes - 5} productos restantes (Y<sub>5</sub>·L<sub>5</sub> a Y<sub>${totalNodes - 1}</sub>·L<sub>${totalNodes - 1}</sub>)</span>
+          </summary>
+          <div class="why-panel is-scrollable-panel">
+            ${eachDistributedItems.slice(5).join('')}
+          </div>
+        </details>
+      `
+      : eachDistributedItems.join('');
 
     steps.push({
       title: 'Multiplicamos cada L por su y',
@@ -1246,9 +1479,8 @@
       finalPoly = polyAdd(finalPoly, sp);
     }
 
-    const sumOfPolysHTML = scaledPolys
-      .map(sp => `(${renderPolyHTML(sp)})`)
-      .join(' + ');
+    const sumOfPolysArr = scaledPolys.map(sp => `(${renderPolyHTML(sp)})`);
+    const sumOfPolysHTML = compactArrayWithEllipsis(sumOfPolysArr, 4, 2, ' + ', ' + … + ');
 
     const groupedByDegreeLines = [];
     const groupedInlineParts = [];
@@ -1258,8 +1490,9 @@
       const coeffsAtDeg = scaledPolys.map(sp => (deg < sp.length ? sp[deg] : new Frac(0n)));
       const nonZeroCoeffs = coeffsAtDeg.filter(c => !c.isZero());
 
+      const sumExprArr = nonZeroCoeffs.map((c, idx) => renderTermWithSignHTML(c, 0, idx === 0));
       const sumExpr = nonZeroCoeffs.length > 0
-        ? nonZeroCoeffs.map((c, idx) => renderTermWithSignHTML(c, 0, idx === 0)).join('')
+        ? compactArrayWithEllipsis(sumExprArr, 5, 2, '', ' + … ')
         : '0';
       const needsParens = deg > 0 && (nonZeroCoeffs.length > 1 || (nonZeroCoeffs.length === 1 && nonZeroCoeffs[0].isNegative()));
       const wrappedSumExpr = needsParens ? `(${sumExpr})` : sumExpr;
@@ -1270,10 +1503,12 @@
         ? 'Término independiente'
         : (deg === 1 ? 'Términos con x' : `Términos con x<sup>${deg}</sup>`);
 
-      const whyDeg = renderWhyBoxHTML(
-        `¿De dónde salen estos números y cómo se suman? (${degTitle})`,
-        buildDegreeGroupingBreakdownHTML(deg, scaledPolys, lagrangeSourceLabels, totalAtDeg)
-      );
+      const whyDeg = (totalNodes <= 8 || deg >= n - 4)
+        ? renderWhyBoxHTML(
+            `¿De dónde salen estos números y cómo se suman? (${degTitle})`,
+            buildDegreeGroupingBreakdownHTML(deg, scaledPolys, lagrangeSourceLabels, totalAtDeg)
+          )
+        : '';
 
       groupedByDegreeLines.push(`
         <div class="math-block">
@@ -1288,6 +1523,21 @@
       }
     }
 
+    const groupedDegreesDisplayHTML = groupedByDegreeLines.length > 6
+      ? `
+        ${groupedByDegreeLines.slice(0, 5).join('')}
+        <details class="why-box">
+          <summary class="why-btn">
+            <span class="why-icon" aria-hidden="true">+</span>
+            <span class="why-btn-text">Ver la agrupación de los ${groupedByDegreeLines.length - 5} grados restantes</span>
+          </summary>
+          <div class="why-panel is-scrollable-panel">
+            ${groupedByDegreeLines.slice(5).join('')}
+          </div>
+        </details>
+      `
+      : groupedByDegreeLines.join('');
+
     const finalPolyHTML = renderPolyHTML(finalPoly);
 
     steps.push({
@@ -1299,8 +1549,8 @@
         <div class="math-block">
           P(x) = ${sumOfPolysHTML}
         </div>
-        ${groupedInlineParts.length > 0 ? `<div class="math-block">P(x) = ${groupedInlineParts.join(' + ')}</div>` : ''}
-        ${groupedByDegreeLines.join('')}
+        ${groupedInlineParts.length > 0 && groupedInlineParts.length <= 6 ? `<div class="math-block">P(x) = ${groupedInlineParts.join(' + ')}</div>` : ''}
+        ${groupedDegreesDisplayHTML}
         <p class="step-explanation">
           ¡Listo! Este es nuestro <strong>polinomio de Lagrange final</strong>:
         </p>
@@ -1311,29 +1561,6 @@
     });
 
     // PASO 6: Verificamos con la gráfica
-    const verificationItemsHTML = workNodes.map((pt, i) => {
-      const xVal = pt.x;
-      const evalSubHTML = renderPolyEvaluationSubstitutionHTML(finalPoly, xVal);
-      const evaluatedY = polyEval(finalPoly, xVal);
-      const whyEval = renderWhyBoxHTML(
-        `¿Cómo se calculó P(${xVal.toPlainString()}) paso a paso?`,
-        buildPolyEvaluationBreakdownHTML(finalPoly, xVal)
-      );
-
-      return `
-        <li class="verification-item" style="flex-direction: column; align-items: stretch;">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
-            <span class="math-inline">
-              <strong>Nodo ${i}</strong> (${pt.x.toPlainString()}, ${pt.y.toPlainString()}):
-              &nbsp; P(${renderFracHTML(xVal)}) = ${evalSubHTML} = <strong>${renderFracHTML(evaluatedY)}</strong> = y<sub>${i}</sub>
-            </span>
-            <span class="check-badge" aria-label="Verificado">✓ Cumple</span>
-          </div>
-          ${whyEval}
-        </li>
-      `;
-    }).join('');
-
     const svgCurveAndNodes = buildCartesianSVG(
       planeNodes,
       finalPoly,
@@ -1347,9 +1574,7 @@
         <p class="step-explanation">
           Para estar seguros de que no nos equivocamos en las cuentas, comprobamos que <span class="math-inline">P(x) = y</span> en cada nodo con el que trabajamos:
         </p>
-        <ul class="verification-list">
-          ${verificationItemsHTML}
-        </ul>
+        ${buildVerificationSectionHTML(workNodes, finalPoly)}
         <p class="step-explanation">
           Y al graficar la curva de <span class="math-inline">P(x)</span> en el plano cartesiano, vemos cómo pasa exactamente por los <span class="math-inline">${totalNodes}</span> nodos:
         </p>
@@ -1428,9 +1653,12 @@
     return { ddTable, coeffs, finalPoly };
   }
 
-  // Genera el diagrama SVG en verde de la Tabla Vertical paso a paso (con líneas de fracción reales)
+  // Genera el diagrama SVG en verde de la Tabla Vertical paso a paso (o delega a matriz compacta si N > 8)
   function buildDividedDiffVisualSVG(workNodes, ddTable, maxVisibleOrder, highlightOrder = null, highlightRowIdx = null, highlightTopDiagonal = false) {
     const N = workNodes.length;
+    if (N > 8) {
+      return buildDividedDiffHTMLTable(workNodes, ddTable, maxVisibleOrder, highlightTopDiagonal);
+    }
     const colWidth = 172;
     const xColStart = 92;
     const yColStart = 188;
@@ -1691,24 +1919,34 @@
         if (i < N - ord) {
           const cell = ddTable[ord][i];
           const isAk = highlightTopDiagonal && i === 0;
-          const bHTML = renderFracHTML(cell.bottomVal, { parensIfNeg: true });
-          const tHTML = renderFracHTML(cell.topVal, { parensIfNeg: true });
-          const xbHTML = renderFracHTML(cell.xBottom, { parensIfNeg: true });
-          const xtHTML = renderFracHTML(cell.xTop, { parensIfNeg: true });
+          if (N > 8) {
+            const tooltipEq = `(${cell.bottomVal.toPlainString()} ${MINUS} ${cell.topVal.toPlainString()}) / (${cell.xBottom.toPlainString()} ${MINUS} ${cell.xTop.toPlainString()})`;
+            tds += `
+              <td class="${isAk ? 'dd-cell-top-coeff' : ''}" data-dd-ord="${ord}" data-dd-row="${i}" title="${tooltipEq}">
+                ${isAk ? `<div class="dd-coeff-tag">a<sub>${ord}</sub></div><br>` : ''}
+                <strong class="math-inline">${renderFracHTML(cell.val)}</strong>
+              </td>
+            `;
+          } else {
+            const bHTML = renderFracHTML(cell.bottomVal, { parensIfNeg: true });
+            const tHTML = renderFracHTML(cell.topVal, { parensIfNeg: true });
+            const xbHTML = renderFracHTML(cell.xBottom, { parensIfNeg: true });
+            const xtHTML = renderFracHTML(cell.xTop, { parensIfNeg: true });
 
-          tds += `
-            <td class="${isAk ? 'dd-cell-top-coeff' : ''}" data-dd-ord="${ord}" data-dd-row="${i}" style="cursor: pointer;" title="Pasa el mouse para iluminar qué números se restaron">
-              ${isAk ? `<div class="dd-coeff-tag">a<sub>${ord}</sub></div><br>` : ''}
-              <span class="math-inline">
-                <span class="frac">
-                  <span class="frac-num">${bHTML} ${MINUS} ${tHTML}</span>
-                  <span class="frac-bar">/</span>
-                  <span class="frac-den">${xbHTML} ${MINUS} ${xtHTML}</span>
+            tds += `
+              <td class="${isAk ? 'dd-cell-top-coeff' : ''}" data-dd-ord="${ord}" data-dd-row="${i}" style="cursor: pointer;" title="Pasa el mouse para iluminar qué números se restaron">
+                ${isAk ? `<div class="dd-coeff-tag">a<sub>${ord}</sub></div><br>` : ''}
+                <span class="math-inline">
+                  <span class="frac">
+                    <span class="frac-num">${bHTML} ${MINUS} ${tHTML}</span>
+                    <span class="frac-bar">/</span>
+                    <span class="frac-den">${xbHTML} ${MINUS} ${xtHTML}</span>
+                  </span>
+                  = <strong>${renderFracHTML(cell.val)}</strong>
                 </span>
-                = <strong>${renderFracHTML(cell.val)}</strong>
-              </span>
-            </td>
-          `;
+              </td>
+            `;
+          }
         } else {
           tds += `<td style="background-color: var(--bg-subtle); color: var(--ink-muted);">—</td>`;
         }
@@ -1718,7 +1956,7 @@
     }
 
     return `
-      <div class="table-wrapper">
+      <div class="table-wrapper ${N > 8 ? 'is-pro-scrollable dd-matrix-compact' : ''}">
         <table class="dd-vertical-table" aria-label="Tabla vertical de diferencias divididas">
           <thead><tr>${ths}</tr></thead>
           <tbody>${trs}</tbody>
@@ -1758,14 +1996,15 @@
       `;
     }).join('');
 
-    const newtonFormulaSymbolic = workNodes.map((_, k) => {
+    const newtonSymbolicArr = workNodes.map((_, k) => {
       if (k === 0) return 'a<sub>0</sub>';
       const factors = [];
       for (let j = 0; j < k; j++) {
         factors.push(`(x ${MINUS} x<sub>${j}</sub>)`);
       }
-      return `a<sub>${k}</sub>${factors.join('')}`;
-    }).join(' + ');
+      return `a<sub>${k}</sub>${compactArrayWithEllipsis(factors, 3, 1, '', '…')}`;
+    });
+    const newtonFormulaSymbolic = compactArrayWithEllipsis(newtonSymbolicArr, 4, 2, ' + ', ' + … + ');
 
     const introExplanation = showExtraPlaneCol
       ? `En nuestro plano ubicamos <strong>${totalPlane} nodos</strong> y elegimos trabajar con <strong><span class="math-inline">n + 1 = ${N}</span> nodos</strong> (así que buscamos un polinomio de grado <span class="math-inline">n = ${n}</span>). En el <strong>Método de Diferencias Divididas</strong> planteamos el polinomio de esta forma:`
@@ -1787,7 +2026,7 @@
         <p class="step-explanation">
           Para hallar los coeficientes <span class="math-inline">a<sub>0</sub>, a<sub>1</sub>, …, a<sub>${n}</sub></span>, construimos una <strong>tablita por columnas</strong> con nuestros ${N} nodos de trabajo:
         </p>
-        <div class="table-wrapper">
+        <div class="table-wrapper ${planeNodes.length > 8 ? 'is-pro-scrollable' : ''}">
           <table class="nodes-summary-table" aria-label="Tabla de nodos iniciales">
             <thead>
               <tr>
@@ -1827,11 +2066,61 @@
     });
 
     // -------------------------------------------------------------------------
-    // PASOS DETALLADOS: Cada resta paso a paso dentro de cada Diferencia Dividida
+    // PASOS DETALLADOS: Si N <= 6, paso por cada resta; si N > 6, 1 paso agrupado por columna (anti-colapso)
     // -------------------------------------------------------------------------
     for (let ord = 1; ord <= n; ord++) {
       const colCells = ddTable[ord];
       const prevColName = ord === 1 ? 'la columna y' : `la ${(ord - 1)}.ª Diferencia Dividida`;
+
+      if (N > 6) {
+        const renderCompactSubtractionBox = (cItem, isTopCoeff) => {
+          const kb = renderFracHTML(cItem.bottomVal, { parensIfNeg: true });
+          const kt = renderFracHTML(cItem.topVal, { parensIfNeg: true });
+          const kxb = renderFracHTML(cItem.xBottom, { parensIfNeg: true });
+          const kxt = renderFracHTML(cItem.xTop, { parensIfNeg: true });
+          return `
+            <div class="dd-chain-step ${isTopCoeff ? 'active-step' : ''}">
+              <span class="frac">
+                <span class="frac-num">${kb} ${MINUS} ${kt}</span>
+                <span class="frac-bar">/</span>
+                <span class="frac-den">${kxb} ${MINUS} ${kxt}</span>
+              </span>
+              <span>= <strong>${renderFracHTML(cItem.val)}</strong></span>
+            </div>
+          `;
+        };
+
+        const visibleCells = colCells.slice(0, 5).map((c, idx) => renderCompactSubtractionBox(c, idx === 0)).join('<span class="dd-chain-arrow">→</span>');
+        const extraCellsHTML = colCells.length > 5
+          ? `
+            <details class="why-box">
+              <summary class="why-btn">
+                <span class="why-icon" aria-hidden="true">+</span>
+                <span class="why-btn-text">Ver las ${colCells.length - 5} restas adicionales de esta columna</span>
+              </summary>
+              <div class="why-panel is-scrollable-panel">
+                <div class="dd-chain-flow" style="margin: 0;">
+                  ${colCells.slice(5).map(c => renderCompactSubtractionBox(c, false)).join('<span class="dd-chain-arrow">→</span>')}
+                </div>
+              </div>
+            </details>
+          `
+          : '';
+
+        steps.push({
+          title: `Calculamos la ${ord}.ª Diferencia Dividida`,
+          html: `
+            <p class="step-explanation">
+              Calculamos las <strong>${colCells.length} ${colCells.length === 1 ? 'resta' : 'restas'}</strong> de la ${ord}.ª Diferencia Dividida tomando los pares consecutivos de ${prevColName} (el de abajo menos el de arriba) y dividiendo entre la resta de sus valores en la columna <span class="math-inline">x</span>. El primer resultado de esta columna es el coeficiente <strong><span class="math-inline">a<sub>${ord}</sub> = ${renderFracHTML(colCells[0].val)}</span></strong>:
+            </p>
+            <div class="dd-chain-flow">
+              ${visibleCells}
+            </div>
+            ${extraCellsHTML}
+          `
+        });
+        continue;
+      }
 
       for (let idx = 0; idx < colCells.length; idx++) {
         const cell = colCells[idx];
@@ -1941,7 +2230,7 @@
         <p class="step-explanation">
           ¡Ya completamos toda la tabla vertical! Ahora, tal como hace el profesor en la pizarra, <strong>encerramos el primer valor de cada columna (la fila de hasta arriba)</strong>. Esos son nuestros coeficientes <span class="math-inline">a<sub>0</sub>, a<sub>1</sub>, …, a<sub>${n}</sub></span>:
         </p>
-        ${buildDividedDiffVisualSVG(workNodes, ddTable, n, null, null, true)}
+        ${N <= 8 ? buildDividedDiffVisualSVG(workNodes, ddTable, n, null, null, true) : ''}
         ${buildDividedDiffHTMLTable(workNodes, ddTable, n, true)}
         <div class="math-block">
           ${coeffsBadgesHTML}
@@ -1980,8 +2269,10 @@
           factorNodes.push(workNodes[j].x);
           factorIndices.push(j);
         }
-        const factorsHTML = factorNodes.map(xj => renderNewtonFactorHTML(xj)).join('');
-        const factorsColoredHTML = factorNodes.map(xj => renderNewtonFactorHTML(xj, true)).join('');
+        const factorsArr = factorNodes.map(xj => renderNewtonFactorHTML(xj));
+        const factorsHTML = compactArrayWithEllipsis(factorsArr, 4, 2, '', ' · … · ');
+        const factorsColoredArr = factorNodes.map(xj => renderNewtonFactorHTML(xj, true));
+        const factorsColoredHTML = compactArrayWithEllipsis(factorsColoredArr, 4, 2, '', ' · … · ');
         const akParen = renderFracHTML(ak, { parensIfNeg: true });
         const akCore = `<span class="coeff-highlight" title="Coeficiente a${k} tomado de la tablita">${renderFracHTML(ak)}</span>`;
         const akBadge = ak.isNegative() ? `(${akCore})` : akCore;
@@ -1995,6 +2286,15 @@
         const scaledTermPoly = polyScale(monicPoly, ak);
         termPolys.push(scaledTermPoly);
 
+        if (N > 8 && k >= 6) {
+          termDevelopmentLines.push(`
+            <div class="math-block">
+              <span class="math-eq-stage"><strong>Término ${k}:</strong></span> = <span class="math-eq-stage">${renderPolyHTML(scaledTermPoly)}</span>
+            </div>
+          `);
+          continue;
+        }
+
         // Cadena de desarrollo igual que el profesor (con math-eq-stage para salto de línea limpio sin scroll horizontal)
         const chain = [];
         const rawChain = [];
@@ -2007,9 +2307,11 @@
 
         pushChain(`${akParen}${factorsHTML}`, `${akBadge}${factorsColoredHTML}`);
         if (factorNodes.length >= 2) {
-          const unsimp = renderUnsimplifiedTwoFactorsHTML(factorNodes[0], factorNodes[1]);
-          const rem = factorNodes.slice(2).map(xj => renderNewtonFactorHTML(xj)).join('');
-          pushChain(`${akParen}(${unsimp})${rem}`);
+          if (factorNodes.length <= 7) {
+            const unsimp = renderUnsimplifiedTwoFactorsHTML(factorNodes[0], factorNodes[1]);
+            const rem = factorNodes.slice(2).map(xj => renderNewtonFactorHTML(xj)).join('');
+            pushChain(`${akParen}(${unsimp})${rem}`);
+          }
           pushChain(`${akParen}(${renderPolyHTML(monicPoly)})`);
         }
         pushChain(renderPolyHTML(scaledTermPoly));
@@ -2019,9 +2321,12 @@
           buildFactorMultiplicationBreakdownHTML(factorNodes, factorIndices, ak, `a<sub>${k}</sub>`, true)
         );
 
+        const symFactorsArr = factorNodes.map((_, j) => `(x ${MINUS} x<sub>${j}</sub>)`);
+        const symFactorsHTML = compactArrayWithEllipsis(symFactorsArr, 4, 1, '', '…');
+
         termDevelopmentLines.push(`
           <div class="math-block">
-            <span class="math-eq-stage"><strong>Término ${k}:</strong> &nbsp; a<sub>${k}</sub>${ factorNodes.map((_, j) => `(x ${MINUS} x<sub>${j}</sub>)`).join('') }</span> = ${chain.join(' = ')}
+            <span class="math-eq-stage"><strong>Término ${k}:</strong> &nbsp; a<sub>${k}</sub>${symFactorsHTML}</span> = ${chain.join(' = ')}
           </div>
           ${whyTermK}
         `);
@@ -2029,22 +2334,24 @@
     }
 
     // Explicación (?) de la sustitución general en P(x)
-    const substExplanationBullets = coeffs.map((ak, k) => {
+    const substExplanationBullets = coeffs.slice(0, 6).map((ak, k) => {
       if (k === 0) {
         return `<li><strong>Para <span class="math-inline">a<sub>0</sub></span>:</strong> reemplazamos <span class="math-inline">a<sub>0</sub> = <strong>${renderFracHTML(ak)}</strong></span>.</li>`;
       }
       const fList = [];
-      for (let j = 0; j < k; j++) {
+      for (let j = 0; j < Math.min(k, 5); j++) {
         const xj = workNodes[j].x;
         fList.push(`<span class="math-inline">x<sub>${j}</sub> = ${renderFracHTML(xj)} → <strong>${renderNewtonFactorHTML(xj)}</strong></span>`);
       }
-      return `<li><strong>Para <span class="math-inline">a<sub>${k}</sub>${Array.from({ length: k }, (_, j) => `(x ${MINUS} x<sub>${j}</sub>)`).join('')}</span>:</strong> reemplazamos <span class="math-inline">a<sub>${k}</sub> = <strong>${renderFracHTML(ak, { parensIfNeg: true })}</strong></span>${ak.isNegative() ? ' (entre paréntesis por ser negativo)' : ' (sin paréntesis por ser positivo)'} y en los factores sustituimos ${fList.join(', ')}.</li>`;
-    }).join('');
+      if (k > 5) fList.push('…');
+      const symF = compactArrayWithEllipsis(Array.from({ length: k }, (_, j) => `(x ${MINUS} x<sub>${j}</sub>)`), 3, 1, '', '…');
+      return `<li><strong>Para <span class="math-inline">a<sub>${k}</sub>${symF}</span>:</strong> reemplazamos <span class="math-inline">a<sub>${k}</sub> = <strong>${renderFracHTML(ak, { parensIfNeg: true })}</strong></span>${ak.isNegative() ? ' (entre paréntesis por ser negativo)' : ' (sin paréntesis por ser positivo)'} y en los factores sustituimos ${fList.join(', ')}.</li>`;
+    }).join('') + (coeffs.length > 6 ? `<li>… y del mismo modo para los ${coeffs.length - 6} términos restantes.</li>` : '');
 
     const whyGeneralSubstitution = renderWhyBoxHTML(
       '¿Por qué quedó así la sustitución en P(x)?',
       `
-        <div>Sustituimos en <span class="math-inline">P(x) = ${workNodes.map((_, k) => k === 0 ? 'a<sub>0</sub>' : `a<sub>${k}</sub>${Array.from({ length: k }, (__, j) => `(x ${MINUS} x<sub>${j}</sub>)`).join('')}`).join(' + ')}</span> cada coeficiente y cada nodo:</div>
+        <div>Sustituimos en la fórmula de Newton cada coeficiente <span class="math-inline">a<sub>k</sub></span> y cada nodo <span class="math-inline">x<sub>j</sub></span>:</div>
         <ul class="why-sublist">${substExplanationBullets}</ul>
       `
     );
@@ -2062,8 +2369,9 @@
     for (let deg = n; deg >= 0; deg--) {
       const coeffsAtDeg = termPolys.map(tp => (deg < tp.length ? tp[deg] : new Frac(0n)));
       const nonZero = coeffsAtDeg.filter(c => !c.isZero());
+      const sumExprArr = nonZero.map((c, idx) => renderTermWithSignHTML(c, 0, idx === 0));
       const sumExpr = nonZero.length > 0
-        ? nonZero.map((c, idx) => renderTermWithSignHTML(c, 0, idx === 0)).join('')
+        ? compactArrayWithEllipsis(sumExprArr, 5, 2, '', ' + … ')
         : '0';
       const needsParens = deg > 0 && (nonZero.length > 1 || (nonZero.length === 1 && nonZero[0].isNegative()));
       const wrappedSumExpr = needsParens ? `(${sumExpr})` : sumExpr;
@@ -2073,10 +2381,12 @@
         ? 'Término independiente'
         : (deg === 1 ? 'Términos con x' : `Términos con x<sup>${deg}</sup>`);
 
-      const whyDeg = renderWhyBoxHTML(
-        `¿De dónde salen estos números y cómo se suman? (${degTitle})`,
-        buildDegreeGroupingBreakdownHTML(deg, termPolys, ddSourceLabels, totalAtDeg)
-      );
+      const whyDeg = (N <= 8 || deg >= n - 4)
+        ? renderWhyBoxHTML(
+            `¿De dónde salen estos números y cómo se suman? (${degTitle})`,
+            buildDegreeGroupingBreakdownHTML(deg, termPolys, ddSourceLabels, totalAtDeg)
+          )
+        : '';
 
       groupedByDegreeLines.push(`
         <div class="math-block">
@@ -2087,6 +2397,36 @@
       `);
     }
 
+    const termsDisplayHTML = termDevelopmentLines.length > 6
+      ? `
+        ${termDevelopmentLines.slice(0, 5).join('')}
+        <details class="why-box">
+          <summary class="why-btn">
+            <span class="why-icon" aria-hidden="true">+</span>
+            <span class="why-btn-text">Ver los ${termDevelopmentLines.length - 5} términos desarrollados restantes</span>
+          </summary>
+          <div class="why-panel is-scrollable-panel">
+            ${termDevelopmentLines.slice(5).join('')}
+          </div>
+        </details>
+      `
+      : termDevelopmentLines.join('');
+
+    const groupedDegreesDisplayHTML = groupedByDegreeLines.length > 6
+      ? `
+        ${groupedByDegreeLines.slice(0, 5).join('')}
+        <details class="why-box">
+          <summary class="why-btn">
+            <span class="why-icon" aria-hidden="true">+</span>
+            <span class="why-btn-text">Ver la agrupación de los ${groupedByDegreeLines.length - 5} grados restantes</span>
+          </summary>
+          <div class="why-panel is-scrollable-panel">
+            ${groupedByDegreeLines.slice(5).join('')}
+          </div>
+        </details>
+      `
+      : groupedByDegreeLines.join('');
+
     steps.push({
       title: 'Sustituimos en P(x), desarrollamos y sumamos',
       html: `
@@ -2094,17 +2434,17 @@
           Reemplazamos los coeficientes <span class="math-inline">a<sub>0</sub>, …, a<sub>${n}</sub></span> y los nodos <span class="math-inline">x</span> en la fórmula de Newton:
         </p>
         <div class="math-block">
-          P(x) = ${substitutedTerms.join(' + ')}
+          P(x) = ${compactArrayWithEllipsis(substitutedTerms, 4, 2, ' + ', ' + … + ')}
         </div>
         ${whyGeneralSubstitution}
         <p class="step-explanation">
           Desarrollamos cada término paso a paso:
         </p>
-        ${termDevelopmentLines.join('')}
+        ${termsDisplayHTML}
         <p class="step-explanation">
           Agrupamos términos semejantes según la potencia de <span class="math-inline">x</span>:
         </p>
-        ${groupedByDegreeLines.join('')}
+        ${groupedDegreesDisplayHTML}
         <p class="step-explanation">
           ¡Y llegamos exactamente al mismo <strong>polinomio interpolador final</strong>!:
         </p>
@@ -2117,29 +2457,6 @@
     // -------------------------------------------------------------------------
     // PASO FINAL: Verificación en cada nodo y gráfica
     // -------------------------------------------------------------------------
-    const verificationItemsHTML = workNodes.map((pt, i) => {
-      const xVal = pt.x;
-      const evalSubHTML = renderPolyEvaluationSubstitutionHTML(finalPoly, xVal);
-      const evaluatedY = polyEval(finalPoly, xVal);
-      const whyEval = renderWhyBoxHTML(
-        `¿Cómo se calculó P(${xVal.toPlainString()}) paso a paso?`,
-        buildPolyEvaluationBreakdownHTML(finalPoly, xVal)
-      );
-
-      return `
-        <li class="verification-item" style="flex-direction: column; align-items: stretch;">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
-            <span class="math-inline">
-              <strong>Nodo ${i}</strong> (${pt.x.toPlainString()}, ${pt.y.toPlainString()}):
-              &nbsp; P(${renderFracHTML(xVal)}) = ${evalSubHTML} = <strong>${renderFracHTML(evaluatedY)}</strong> = y<sub>${i}</sub>
-            </span>
-            <span class="check-badge" aria-label="Verificado">✓ Cumple</span>
-          </div>
-          ${whyEval}
-        </li>
-      `;
-    }).join('');
-
     const svgCurveAndNodes = buildCartesianSVG(
       planeNodes,
       finalPoly,
@@ -2153,9 +2470,7 @@
         <p class="step-explanation">
           Comprobamos que <span class="math-inline">P(x) = y</span> se cumple en cada nodo con el que trabajamos:
         </p>
-        <ul class="verification-list">
-          ${verificationItemsHTML}
-        </ul>
+        ${buildVerificationSectionHTML(workNodes, finalPoly)}
         <p class="step-explanation">
           Y verificamos en el plano cartesiano cómo nuestra curva pasa por todos los ${N} puntos de trabajo:
         </p>
@@ -2172,6 +2487,7 @@
   let openAllWhyExplanations = false;
   let practiceModeActive = false;
   let fullBoardActive = false;
+  let decimalModeActive = false;
   let stickyScrollSpyInitialized = false;
   let currentJumpHandler = null;
   let currentStepsTotal = 0;
@@ -2249,6 +2565,10 @@
       const bIdx = parseInt(btn.getAttribute('data-jump-idx'), 10);
       btn.classList.toggle('is-current', bIdx === activeIdx);
     });
+    const jumperSelect = document.querySelector('.js-step-jumper-select');
+    if (jumperSelect && document.activeElement !== jumperSelect) {
+      jumperSelect.value = String(activeIdx);
+    }
     const prevBtn = document.querySelector('.js-jumper-prev-btn');
     const nextBtn = document.querySelector('.js-jumper-next-btn');
     if (prevBtn) prevBtn.disabled = activeIdx <= 0;
@@ -2418,39 +2738,31 @@
     const totalNodes = workNodes.length;
     const { basisPolys, scaledPolys, finalPoly } = computeLagrangePolynomial(workNodes);
 
-    const basisAndScaledHTML = workNodes.map((pt, i) => `
+    const basisItems = workNodes.map((pt, i) => `
       <div class="math-block">
         <strong>Nodo ${i}</strong> (<span class="math-inline">${pt.x.toPlainString()}, ${pt.y.toPlainString()}</span>):
         &nbsp; <span class="math-eq-stage">L<sub>${i}</sub>(x) = ${renderPolyHTML(basisPolys[i])}</span>
         &nbsp; → &nbsp;
         <span class="math-eq-stage">Y<sub>${i}</sub> · L<sub>${i}</sub>(x) = ${renderPolyHTML(scaledPolys[i])}</span>
       </div>
-    `).join('');
+    `);
+
+    const basisAndScaledHTML = totalNodes > 6
+      ? `
+        ${basisItems.slice(0, 5).join('')}
+        <details class="why-box">
+          <summary class="why-btn">
+            <span class="why-icon" aria-hidden="true">+</span>
+            <span class="why-btn-text">Ver los ${totalNodes - 5} polinomios base restantes (L<sub>5</sub> a L<sub>${totalNodes - 1}</sub>)</span>
+          </summary>
+          <div class="why-panel is-scrollable-panel">
+            ${basisItems.slice(5).join('')}
+          </div>
+        </details>
+      `
+      : basisItems.join('');
 
     const finalPolyHTML = renderPolyHTML(finalPoly);
-
-    const verificationItemsHTML = workNodes.map((pt, i) => {
-      const xVal = pt.x;
-      const evalSubHTML = renderPolyEvaluationSubstitutionHTML(finalPoly, xVal);
-      const evaluatedY = polyEval(finalPoly, xVal);
-      const whyEval = renderWhyBoxHTML(
-        `¿Cómo se calculó P(${xVal.toPlainString()}) paso a paso?`,
-        buildPolyEvaluationBreakdownHTML(finalPoly, xVal)
-      );
-
-      return `
-        <li class="verification-item" style="flex-direction: column; align-items: stretch;">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
-            <span class="math-inline">
-              <strong>Nodo ${i}</strong> (${pt.x.toPlainString()}, ${pt.y.toPlainString()}):
-              &nbsp; P(${renderFracHTML(xVal)}) = ${evalSubHTML} = <strong>${renderFracHTML(evaluatedY)}</strong> = y<sub>${i}</sub>
-            </span>
-            <span class="check-badge" aria-label="Verificado">✓ Cumple</span>
-          </div>
-          ${whyEval}
-        </li>
-      `;
-    }).join('');
 
     const svgCurveAndNodes = buildCartesianSVG(
       planeNodes,
@@ -2475,9 +2787,7 @@
         <p class="step-explanation" style="margin-top: 0.9rem;">
           <strong>3. Verificaciones en los ${totalNodes} nodos de trabajo (<span class="math-inline">P(x) = y</span>):</strong>
         </p>
-        <ul class="verification-list">
-          ${verificationItemsHTML}
-        </ul>
+        ${buildVerificationSectionHTML(workNodes, finalPoly)}
         <p class="step-explanation" style="margin-top: 0.9rem;">
           <strong>4. Gráfica cartesiana interactiva:</strong>
         </p>
@@ -2492,13 +2802,32 @@
     const N = workNodes.length;
     const { coeffs, finalPoly } = computeDividedDifferencesPolynomial(workNodes);
 
-    const coeffsBadgesHTML = coeffs.map((c, ord) => `
+    const coeffBadgesArr = coeffs.map((c, ord) => `
       <span class="check-badge" style="background-color: var(--accent-red-bg); color: var(--accent-red); border: 1px solid var(--accent-red); font-size: 0.92rem; padding: 0.25rem 0.7rem;">
         <strong class="math-inline">a<sub>${ord}</sub> = ${renderFracHTML(c)}</strong>
       </span>
-    `).join(' ');
+    `);
 
-    const termsResolvedHTML = coeffs.map((ak, k) => {
+    const coeffsBadgesHTML = coeffBadgesArr.length > 10
+      ? `
+        <div style="display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0.45rem 0;">
+          ${coeffBadgesArr.slice(0, 8).join(' ')}
+        </div>
+        <details class="why-box">
+          <summary class="why-btn">
+            <span class="why-icon" aria-hidden="true">+</span>
+            <span class="why-btn-text">Ver los ${coeffBadgesArr.length - 8} coeficientes restantes (a<sub>8</sub> a a<sub>${N - 1}</sub>)</span>
+          </summary>
+          <div class="why-panel is-scrollable-panel">
+            <div style="display: flex; flex-wrap: wrap; gap: 0.45rem;">
+              ${coeffBadgesArr.slice(8).join(' ')}
+            </div>
+          </div>
+        </details>
+      `
+      : `<div style="display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0.45rem 0 0.75rem;">${coeffBadgesArr.join(' ')}</div>`;
+
+    const termsResolvedItems = coeffs.map((ak, k) => {
       if (k === 0) {
         return `
           <div class="math-block">
@@ -2514,40 +2843,34 @@
       }
       const scaledTermPoly = polyScale(monicPoly, ak);
       const akParen = renderFracHTML(ak, { parensIfNeg: true });
+      const symF = compactArrayWithEllipsis(Array.from({ length: k }, (_, j) => `(x ${MINUS} x<sub>${j}</sub>)`), 3, 1, '', '…');
+      const facF = compactArrayWithEllipsis(factorLabels, 3, 1, '', ' · … · ');
       return `
         <div class="math-block">
           <strong>Término ${k}:</strong> &nbsp;
-          <span class="math-eq-stage">a<sub>${k}</sub>${Array.from({ length: k }, (_, j) => `(x ${MINUS} x<sub>${j}</sub>)`).join('')} = ${akParen}${factorLabels.join('')}</span>
+          <span class="math-eq-stage">a<sub>${k}</sub>${symF} = ${akParen}${facF}</span>
           &nbsp; = &nbsp;
           <span class="math-eq-stage">${renderPolyHTML(scaledTermPoly)}</span>
         </div>
       `;
-    }).join('');
+    });
+
+    const termsResolvedHTML = termsResolvedItems.length > 6
+      ? `
+        ${termsResolvedItems.slice(0, 5).join('')}
+        <details class="why-box">
+          <summary class="why-btn">
+            <span class="why-icon" aria-hidden="true">+</span>
+            <span class="why-btn-text">Ver los ${termsResolvedItems.length - 5} términos desarrollados restantes</span>
+          </summary>
+          <div class="why-panel is-scrollable-panel">
+            ${termsResolvedItems.slice(5).join('')}
+          </div>
+        </details>
+      `
+      : termsResolvedItems.join('');
 
     const finalPolyHTML = renderPolyHTML(finalPoly);
-
-    const verificationItemsHTML = workNodes.map((pt, i) => {
-      const xVal = pt.x;
-      const evalSubHTML = renderPolyEvaluationSubstitutionHTML(finalPoly, xVal);
-      const evaluatedY = polyEval(finalPoly, xVal);
-      const whyEval = renderWhyBoxHTML(
-        `¿Cómo se calculó P(${xVal.toPlainString()}) paso a paso?`,
-        buildPolyEvaluationBreakdownHTML(finalPoly, xVal)
-      );
-
-      return `
-        <li class="verification-item" style="flex-direction: column; align-items: stretch;">
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
-            <span class="math-inline">
-              <strong>Nodo ${i}</strong> (${pt.x.toPlainString()}, ${pt.y.toPlainString()}):
-              &nbsp; P(${renderFracHTML(xVal)}) = ${evalSubHTML} = <strong>${renderFracHTML(evaluatedY)}</strong> = y<sub>${i}</sub>
-            </span>
-            <span class="check-badge" aria-label="Verificado">✓ Cumple</span>
-          </div>
-          ${whyEval}
-        </li>
-      `;
-    }).join('');
 
     const svgCurveAndNodes = buildCartesianSVG(
       planeNodes,
@@ -2562,9 +2885,7 @@
         <p class="step-explanation">
           <strong>1. Coeficientes de Diferencias Divididas (<span class="math-inline">a<sub>0</sub>, …, a<sub>${N - 1}</sub></span>) y términos desarrollados:</strong>
         </p>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0.45rem 0 0.75rem;">
-          ${coeffsBadgesHTML}
-        </div>
+        ${coeffsBadgesHTML}
         ${termsResolvedHTML}
         <p class="step-explanation" style="margin-top: 0.9rem;">
           <strong>2. Polinomio Interpolador Final <span class="math-inline">P(x)</span>:</strong>
@@ -2575,9 +2896,7 @@
         <p class="step-explanation" style="margin-top: 0.9rem;">
           <strong>3. Verificaciones en los ${N} nodos de trabajo (<span class="math-inline">P(x) = y</span>):</strong>
         </p>
-        <ul class="verification-list">
-          ${verificationItemsHTML}
-        </ul>
+        ${buildVerificationSectionHTML(workNodes, finalPoly)}
         <p class="step-explanation" style="margin-top: 0.9rem;">
           <strong>4. Gráfica cartesiana interactiva:</strong>
         </p>
@@ -2673,6 +2992,7 @@
 
     const board = stepsContainer.parentElement;
     board.classList.toggle('practice-mode-active', practiceModeActive);
+    board.classList.toggle('decimal-mode-active', decimalModeActive);
 
     const layout = document.querySelector('.workspace-layout');
     if (layout) {
@@ -2695,32 +3015,84 @@
     }
 
     bar.hidden = false;
-    const pillsHTML = stepsData.map((st, idx) => {
-      const cleanTitle = st.title.replace(/<[^>]+>/g, '');
-      const isRev = idx < revealedCount;
-      const shortTag = getShortStepTag(cleanTitle, idx);
-      const tagSpan = shortTag ? ` <span class="pill-short-tag">${shortTag}</span>` : '';
-      return `
-        <button type="button"
-                class="step-pill-btn ${isRev ? 'is-revealed' : ''}"
-                data-jump-idx="${idx}"
-                title="Ir al Paso ${idx + 1}: ${cleanTitle}">
-          <span>${idx + 1}</span>${tagSpan}
-        </button>
+    const totalSteps = stepsData.length;
+    const activeIdx = getActiveStepIndex();
+    let leftNavigationHTML = '';
+
+    if (totalSteps === 1) {
+      const onlyTitle = stepsData[0].title.replace(/<[^>]+>/g, '');
+      leftNavigationHTML = `<span class="step-jumper-label" style="text-transform: none; font-size: 0.84rem; color: var(--ink-primary);">⚡ ${onlyTitle}</span>`;
+    } else if (totalSteps <= 10) {
+      const pillsHTML = stepsData.map((st, idx) => {
+        const cleanTitle = st.title.replace(/<[^>]+>/g, '');
+        const isRev = idx < revealedCount;
+        const shortTag = getShortStepTag(cleanTitle, idx);
+        const tagSpan = shortTag ? ` <span class="pill-short-tag">${shortTag}</span>` : '';
+        return `
+          <button type="button"
+                  class="step-pill-btn ${isRev ? 'is-revealed' : ''}"
+                  data-jump-idx="${idx}"
+                  title="Ir al Paso ${idx + 1}: ${cleanTitle}">
+            <span>${idx + 1}</span>${tagSpan}
+          </button>
+        `;
+      }).join('');
+      leftNavigationHTML = `
+        <div class="step-nav-arrows" role="group" aria-label="Paso anterior o siguiente">
+          <button type="button" class="step-arrow-btn js-jumper-prev-btn" title="Paso anterior (Tecla ←)">‹ Ant.</button>
+          <button type="button" class="step-arrow-btn js-jumper-next-btn" title="Siguiente paso (Tecla →)">Sig. ›</button>
+        </div>
+        ${pillsHTML}
       `;
-    }).join('');
+    } else {
+      // Paginación compacta anti-colapso para ejercicios con muchos pasos (> 10 pasos)
+      const optionsHTML = stepsData.map((st, idx) => {
+        const cleanTitle = st.title.replace(/<[^>]+>/g, '');
+        return `<option value="${idx}" ${idx === activeIdx ? 'selected' : ''}>Paso ${idx + 1}/${totalSteps}: ${cleanTitle}</option>`;
+      }).join('');
+
+      const windowIndices = new Set([0, Math.max(0, activeIdx - 1), activeIdx, Math.min(totalSteps - 1, activeIdx + 1), totalSteps - 1]);
+      const sortedIndices = Array.from(windowIndices).sort((a, b) => a - b);
+      const compactPills = [];
+      for (let k = 0; k < sortedIndices.length; k++) {
+        const idx = sortedIndices[k];
+        if (k > 0 && idx - sortedIndices[k - 1] > 1) {
+          compactPills.push('<span class="step-jumper-ellipsis" aria-hidden="true">…</span>');
+        }
+        const cleanTitle = stepsData[idx].title.replace(/<[^>]+>/g, '');
+        const isRev = idx < revealedCount;
+        compactPills.push(`
+          <button type="button"
+                  class="step-pill-btn ${isRev ? 'is-revealed' : ''}"
+                  data-jump-idx="${idx}"
+                  title="Ir al Paso ${idx + 1}: ${cleanTitle}">
+            <span>${idx + 1}</span>
+          </button>
+        `);
+      }
+
+      leftNavigationHTML = `
+        <div class="step-nav-arrows" role="group" aria-label="Paso anterior o siguiente">
+          <button type="button" class="step-arrow-btn js-jumper-prev-btn" title="Paso anterior (Tecla ←)">‹ Ant.</button>
+          <button type="button" class="step-arrow-btn js-jumper-next-btn" title="Siguiente paso (Tecla →)">Sig. ›</button>
+        </div>
+        ${compactPills.join('')}
+        <select class="step-jumper-select js-step-jumper-select" aria-label="Saltar directamente a cualquier paso">
+          ${optionsHTML}
+        </select>
+      `;
+    }
 
     const progressPct = Math.min(100, Math.round((revealedCount / stepsData.length) * 100));
 
     bar.innerHTML = `
       <div class="step-jumper-left">
-        <div class="step-nav-arrows" role="group" aria-label="Paso anterior o siguiente (también puedes usar las flechas ← y → del teclado)">
-          <button type="button" class="step-arrow-btn js-jumper-prev-btn" title="Paso anterior (Tecla ←)">‹ Ant.</button>
-          <button type="button" class="step-arrow-btn js-jumper-next-btn" title="Siguiente paso (Tecla →)">Sig. ›</button>
-        </div>
-        ${pillsHTML}
+        ${leftNavigationHTML}
       </div>
       <div class="step-jumper-right">
+        <button type="button" class="why-toggle-all-btn js-decimal-mode-btn ${decimalModeActive ? 'is-active' : ''}" title="Alternar entre fracciones exactas (a/b) y valores decimales (0.0000)">
+          <span>🔢 ${decimalModeActive ? 'Ver a/b' : 'Decimales'}</span>
+        </button>
         <button type="button" class="why-toggle-all-btn js-practice-mode-btn ${practiceModeActive ? 'is-active' : ''}" title="Oculta temporalmente los resultados para que intentes calcularlos tú primero y hagas clic para comprobar">
           <span>🎯 ${practiceModeActive ? 'Salir práctica' : 'Práctica'}</span>
         </button>
@@ -2745,6 +3117,24 @@
         }
       });
     });
+
+    const jumperSelect = bar.querySelector('.js-step-jumper-select');
+    if (jumperSelect) {
+      jumperSelect.addEventListener('change', () => {
+        const targetIdx = parseInt(jumperSelect.value, 10);
+        if (!isNaN(targetIdx) && typeof onJumpToStep === 'function') {
+          onJumpToStep(targetIdx);
+        }
+      });
+    }
+
+    const decimalBtn = bar.querySelector('.js-decimal-mode-btn');
+    if (decimalBtn) {
+      decimalBtn.addEventListener('click', () => {
+        decimalModeActive = !decimalModeActive;
+        syncStepJumperBar(stepsContainer, stepsData, revealedCount, onJumpToStep);
+      });
+    }
 
     const prevBtn = bar.querySelector('.js-jumper-prev-btn');
     const nextBtn = bar.querySelector('.js-jumper-next-btn');

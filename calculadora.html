@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=16">
+  <link rel="stylesheet" href="styles.css?v=17">
 </head>
 <body>
   <!-- Barra de navegación superior profesional -->
@@ -226,7 +226,7 @@
     </div>
   </footer>
 
-  <script src="lagrange.js?v=16"></script>
+  <script src="lagrange.js?v=17"></script>
   <script>
     (function () {
       'use strict';
@@ -702,7 +702,7 @@
           const summaryData = generateLagrangeDirectSummaryData(res.workNodes, res.allPlaneNodes, lastEvalPoint);
           const summaryCard = createStepCardElement(summaryData, 0, 1, 'Modo Profesional · Resumen Directo');
           calcStepsContainer.appendChild(summaryCard);
-          syncStepJumperBar(calcStepsContainer, [], 0, null);
+          syncStepJumperBar(calcStepsContainer, [summaryData], 1, null);
           calcStepControls.hidden = true;
           if (autoScroll) scrollToElement(summaryCard);
           return;

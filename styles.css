@@ -770,6 +770,8 @@ a:focus-visible {
 .step-card {
   scroll-margin-top: calc(var(--navbar-height, 4.2rem) + var(--jumper-height, 3.8rem) + 1rem);
   animation: stepCardEnter 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 340px;
 }
 
 .step-card:focus {
@@ -1755,6 +1757,89 @@ sub, sup {
   color: var(--ink-primary);
   border-color: var(--accent-blue);
   background-color: var(--accent-blue-soft);
+}
+
+/* Protecciones anti-colapso para ejercicios con decenas o cientos de nodos */
+.frac-dec-view {
+  display: none;
+}
+
+.frac.frac-is-huge {
+  display: inline;
+  margin: 0 0.08em;
+  border-bottom: 1px dashed var(--accent-blue);
+  cursor: help;
+}
+
+.frac.frac-is-huge .frac-dec-view {
+  display: inline;
+}
+
+.workspace-board.decimal-mode-active .frac:not(.frac-is-huge) {
+  display: inline;
+  margin: 0 0.06em;
+}
+
+.workspace-board.decimal-mode-active .frac:not(.frac-is-huge) .frac-num,
+.workspace-board.decimal-mode-active .frac:not(.frac-is-huge) .frac-bar,
+.workspace-board.decimal-mode-active .frac:not(.frac-is-huge) .frac-den {
+  display: none;
+}
+
+.workspace-board.decimal-mode-active .frac:not(.frac-is-huge) .frac-dec-view {
+  display: inline;
+}
+
+.step-jumper-select {
+  height: 27px;
+  max-width: 225px;
+  padding: 0 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background-color: var(--bg-subtle);
+  color: var(--ink-primary);
+  font-family: var(--font-ui);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.step-jumper-ellipsis {
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink-muted);
+  padding: 0 0.12rem;
+  user-select: none;
+}
+
+.verification-summary-banner {
+  padding: 0.55rem 0.85rem;
+  margin: 0.45rem 0 0.55rem;
+  background-color: var(--check-green-bg);
+  border: 1px solid var(--check-green);
+  border-left: 4px solid var(--check-green);
+  border-radius: 6px;
+  color: var(--check-green);
+  font-family: var(--font-ui);
+  font-size: 0.86rem;
+}
+
+.why-panel.is-scrollable-panel {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.table-wrapper.dd-matrix-compact {
+  max-height: 400px;
+  overflow: auto;
+}
+
+.table-wrapper.dd-matrix-compact .dd-vertical-table th,
+.table-wrapper.dd-matrix-compact .dd-vertical-table td {
+  padding: 0.35rem 0.48rem;
+  font-size: 0.88rem;
+  white-space: nowrap;
 }
 
 /* Resaltado interactivo al pasar el mouse sobre cualquier celda de la tablita */

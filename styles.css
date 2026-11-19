@@ -1725,6 +1725,38 @@ sub, sup {
   z-index: 2;
 }
 
+/* Barra rápida sobre la tabla de nodos (Ordenar por x / Vaciar celdas) */
+.table-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.btn-table-action {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.36rem 0.5rem;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-secondary);
+  background-color: var(--bg-subtle);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-table-action:hover {
+  color: var(--ink-primary);
+  border-color: var(--accent-blue);
+  background-color: var(--accent-blue-soft);
+}
+
 /* Resaltado interactivo al pasar el mouse sobre cualquier celda de la tablita */
 .dd-svg-cell-group {
   cursor: pointer;

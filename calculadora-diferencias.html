@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;0,6..72,700;1,6..72,400;1,6..72,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body>
   <!-- Barra de navegación superior profesional -->
@@ -136,6 +136,15 @@
 
           <div id="dd-calc-counts-note" class="prof-note-banner"></div>
 
+          <div class="table-quick-actions">
+            <button type="button" id="dd-calc-sort-x-btn" class="btn-table-action" title="Ordenar las filas de menor a mayor según su valor de x">
+              ⇅ Ordenar por x
+            </button>
+            <button type="button" id="dd-calc-clear-cells-btn" class="btn-table-action" title="Dejar en blanco todas las celdas de coordenadas x e y">
+              🗑️ Vaciar celdas
+            </button>
+          </div>
+
           <div class="table-wrapper">
             <table class="nodes-input-table" aria-label="Tabla editable de nodos de la calculadora de diferencias divididas">
               <thead>
@@ -217,7 +226,7 @@
     </div>
   </footer>
 
-  <script src="lagrange.js?v=15"></script>
+  <script src="lagrange.js?v=16"></script>
   <script>
     (function () {
       'use strict';
@@ -264,6 +273,8 @@
       const tableWrapper = calcTbody.closest('.table-wrapper');
       const calcErrorBox = document.getElementById('dd-calc-validation-error');
       const calcAddNodeBtn = document.getElementById('dd-calc-add-node-btn');
+      const calcSortXBtn = document.getElementById('dd-calc-sort-x-btn');
+      const calcClearCellsBtn = document.getElementById('dd-calc-clear-cells-btn');
       const calcStartBtn = document.getElementById('dd-calc-start-btn');
       const calcShowAllTopBtn = document.getElementById('dd-calc-show-all-top-btn');
 
@@ -803,6 +814,80 @@
           firstInput.focus();
           firstInput.select();
         }
+      });
+
+      calcSortXBtn.addEventListener('click', () => {
+        clearCalcError();
+        const rows = getCalcRows();
+        const rowData = rows.map((tr, idx) => {
+          const xRaw = tr.querySelector('.input-x').value.trim();
+          const yRaw = tr.querySelector('.input-y').value.trim();
+          const chk = tr.querySelector('.node-use-check');
+          const parsedX = parseInputToFrac(xRaw);
+          return {
+            xRaw,
+            yRaw,
+            checked: chk ? chk.checked : true,
+            xFrac: parsedX.value || null,
+            origIdx: idx
+          };
+        });
+
+        rowData.sort((a, b) => {
+          if (a.xFrac && b.xFrac) {
+            const diff = a.xFrac.sub(b.xFrac);
+            if (diff.num < 0n) return -1;
+            if (diff.num > 0n) return 1;
+            return a.origIdx - b.origIdx;
+          }
+          if (a.xFrac && !b.xFrac) return -1;
+          if (!a.xFrac && b.xFrac) return 1;
+          return a.origIdx - b.origIdx;
+        });
+
+        calcTbody.innerHTML = '';
+        rowData.forEach(item => {
+          createCalcRow(item.xRaw, item.yRaw, item.checked);
+        });
+        syncCalcTableAndLabels();
+        const vRes = validateCalculatorRowsRealtime(calcTbody, evalXInput, calcErrorBox);
+        calcStartBtn.disabled = !vRes.valid;
+        calcShowAllTopBtn.disabled = !vRes.valid;
+      });
+
+      calcClearCellsBtn.addEventListener('click', () => {
+        clearCalcError();
+        getCalcRows().forEach(tr => {
+          tr.querySelectorAll('input[type="text"]').forEach(inp => {
+            inp.value = '';
+            inp.classList.remove('is-invalid');
+            inp.removeAttribute('aria-invalid');
+          });
+        });
+        evalXInput.value = '';
+        evalXInput.classList.remove('is-invalid');
+        evalXInput.removeAttribute('aria-invalid');
+        activePolyBox.innerHTML = 'P(x) = ...';
+        evalResultBox.hidden = true;
+        calcStartBtn.disabled = false;
+        calcShowAllTopBtn.disabled = false;
+        calcSteps = [];
+        calcRevealed = 0;
+        updateCalcStepControls();
+        calcStepsContainer.innerHTML = `
+          <section class="notebook-card step-card">
+            <div class="step-header">
+              <h2 class="step-title">Pizarra lista para calcular</h2>
+            </div>
+            <div class="step-body">
+              <p class="step-explanation">
+                Escribe las coordenadas <span class="math-inline">(x, y)</span> de tus nodos en el panel izquierdo y pulsa <strong>«Calcular paso a paso»</strong> o <strong>«Calcular y mostrar todo»</strong> para armar la tablita de Diferencias Divididas en la pizarra.
+              </p>
+            </div>
+          </section>
+        `;
+        const firstInput = calcTbody.querySelector('.input-x');
+        if (firstInput) firstInput.focus();
       });
 
       calcStartBtn.addEventListener('click', () => {

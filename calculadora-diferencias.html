@@ -103,6 +103,10 @@
               </label>
             </div>
 
+            <button type="button" id="dd-pro-generate-nodes-btn" class="btn btn-secondary" style="width: 100%; font-size: 0.84rem; padding: 0.45rem 0.7rem; border-color: var(--accent-blue); color: var(--accent-blue);">
+              🎲 Generar nodos
+            </button>
+
             <details class="pro-bulk-details">
               <summary class="pro-bulk-summary">+ Pegar o cargar múltiples nodos de golpe</summary>
               <div class="pro-bulk-body">
@@ -257,6 +261,7 @@
       const proViewRadios = Array.from(document.querySelectorAll('input[name="dd-pro-view-mode"]'));
       const proStepSelectWrap = document.getElementById('dd-pro-step-select-wrap');
       const proStepSelect = document.getElementById('dd-pro-step-select');
+      const proGenerateNodesBtn = document.getElementById('dd-pro-generate-nodes-btn');
       const proBulkTextarea = document.getElementById('dd-pro-bulk-textarea');
       const proBulkLoadBtn = document.getElementById('dd-pro-bulk-load-btn');
 
@@ -420,16 +425,17 @@
         calcPlaneCountInput.value = planeTotal;
         if (isFinite(maxNodes)) {
           calcPlaneCountInput.max = maxNodes;
+          calcWorkCountInput.max = maxNodes;
         } else {
           calcPlaneCountInput.removeAttribute('max');
+          calcWorkCountInput.removeAttribute('max');
         }
-        calcWorkCountInput.max = planeTotal;
         calcWorkCountInput.value = workCount;
 
         planeDecBtn.disabled = planeTotal <= 2;
         planeIncBtn.disabled = planeTotal >= maxNodes;
         workDecBtn.disabled = workCount <= 2;
-        workIncBtn.disabled = workCount >= planeTotal;
+        workIncBtn.disabled = workCount >= maxNodes;
 
         if (tableWrapper) {
           tableWrapper.classList.toggle('is-pro-scrollable', planeTotal > 6);
@@ -796,17 +802,26 @@
 
       workIncBtn.addEventListener('click', () => {
         clearCalcError();
-        setTargetWorkNodeCount(parseInt(calcWorkCountInput.value, 10) + 1);
+        const nextWork = (parseInt(calcWorkCountInput.value, 10) || 2) + 1;
+        if (nextWork > getCalcRows().length) {
+          setCalcPlaneNodeCount(nextWork);
+        }
+        setTargetWorkNodeCount(nextWork);
       });
 
       calcWorkCountInput.addEventListener('change', () => {
         clearCalcError();
-        const planeTotal = getCalcRows().length;
+        const maxNodes = getMaxAllowedNodes();
         const val = parseInt(calcWorkCountInput.value, 10);
-        if (isNaN(val) || val < 2 || val > planeTotal) {
-          showCalcError(`La cantidad de nodos de trabajo debe estar entre 2 y ${planeTotal}.`);
+        if (isNaN(val) || val < 2 || val > maxNodes) {
+          showCalcError(isFinite(maxNodes)
+            ? `La cantidad de nodos de trabajo debe estar entre 2 y ${maxNodes}.`
+            : 'La cantidad de nodos de trabajo debe ser como mínimo 2.');
           syncCalcTableAndLabels();
           return;
+        }
+        if (val > getCalcRows().length) {
+          setCalcPlaneNodeCount(val);
         }
         setTargetWorkNodeCount(val);
       });
@@ -1001,6 +1016,31 @@
           createCalcRow(pt.x, pt.y, true);
         });
         syncCalcTableAndLabels();
+      });
+
+      proGenerateNodesBtn.addEventListener('click', () => {
+        clearCalcError();
+        let targetWork = parseInt(calcWorkCountInput.value, 10);
+        let targetPlane = parseInt(calcPlaneCountInput.value, 10);
+        if (isNaN(targetWork) || targetWork < 2) targetWork = 3;
+        if (isNaN(targetPlane) || targetPlane < targetWork) targetPlane = targetWork;
+
+        const startX = -Math.floor(targetPlane / 2);
+        calcTbody.innerHTML = '';
+        let currentX = startX;
+        for (let i = 0; i < targetPlane; i++) {
+          if (i > 0) {
+            const step = targetPlane <= 10 && Math.random() < 0.35 ? 2 : 1;
+            currentX += step;
+          }
+          const randY = Math.floor(Math.random() * 19) - 9;
+          const isChecked = i < targetWork;
+          createCalcRow(String(currentX), String(randY), isChecked);
+        }
+        syncCalcTableAndLabels();
+        const vRes = validateCalculatorRowsRealtime(calcTbody, evalXInput, calcErrorBox);
+        calcStartBtn.disabled = !vRes.valid;
+        calcShowAllTopBtn.disabled = !vRes.valid;
       });
 
       // Al cargar o refrescar la página, limpiar cualquier parámetro previo de nodos en la URL y reiniciar todo en blanco
